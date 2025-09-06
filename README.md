@@ -20,7 +20,7 @@ A comprehensive OAuth 2.1 middleware for Model Context Protocol (MCP) servers wi
 - **JWT Validation** - Secure token validation with JWKS support
 - **Keycloak Integration** - Native support for Keycloak identity management
 
-## Quickstart
+## Quickstart 
 
 ### Installation
 
