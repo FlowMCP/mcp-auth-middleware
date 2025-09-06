@@ -1,0 +1,51 @@
+{
+    "name": "oauth-middleware-mcp",
+    "version": "1.0.0",
+    "description": "Generic OAuth 2.1 middleware for MCP servers with Keycloak integration",
+    "main": "./src/index.mjs",
+    "type": "module",
+    "engines": {
+        "node": ">=22.0.0"
+    },
+    "scripts": {
+        "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
+        "test:unit": "NODE_OPTIONS='--experimental-vm-modules' jest tests/unit",
+        "test:manual": "NODE_OPTIONS='--experimental-vm-modules' jest tests/manual",
+        "test:coverage:src": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage --collectCoverageFrom='src/**/*.mjs'",
+        "test:file": "NODE_OPTIONS='--experimental-vm-modules' jest"
+    },
+    "keywords": [
+        "oauth",
+        "oauth2.1",
+        "mcp",
+        "model-context-protocol",
+        "keycloak",
+        "middleware",
+        "authentication",
+        "authorization"
+    ],
+    "author": "FlowMCP",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/flowmcp/oauth-middleware.git"
+    },
+    "dependencies": {
+        "express": "^4.19.2",
+        "jsonwebtoken": "^9.0.2",
+        "node-fetch": "^3.3.2",
+        "jwks-client": "^2.0.5"
+    },
+    "devDependencies": {
+        "jest": "^29.7.0",
+        "@jest/globals": "^29.7.0"
+    },
+    "jest": {
+        "testEnvironment": "node",
+        "transform": {},
+        "testMatch": [
+            "**/tests/unit/**/*.test.js",
+            "**/tests/manual/**/*.test.js"
+        ]
+    }
+}
