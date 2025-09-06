@@ -31,5 +31,7 @@ jobs:
         with:
           use_oidc: true
           files: ./coverage/lcov.info
-          fail_ci_if_error: true
+          fail_ci_if_error: false
           flags: unittests
+          slug: FlowMCP/oauth-middleware
+        continue-on-error: true
