@@ -2,7 +2,6 @@ name: Run Tests on Release
 
 on:
   push:
-    branches: [ main ]
   pull_request:
 
 permissions:
