@@ -1,12 +1,14 @@
 name: Run Tests on Release
 
-on:
-  push:
-  pull_request:
+on: push
+# optional sinnvoll: auch PRs prüfen
+# on:
+#   push:
+#   pull_request:
 
 permissions:
   contents: read
-  id-token: write   # nötig für OIDC
+  id-token: write   # << nötig für OIDC
 
 jobs:
   test:
@@ -30,8 +32,8 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           use_oidc: true
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
+          files: ./coverage/lcov.info      # Jest legt diese Datei standardmäßig an
+          fail_ci_if_error: true
           flags: unittests
-          slug: FlowMCP/oauth-middleware
-        continue-on-error: true
+        # optional: auch hochladen, wenn Tests fehlschlagen
+        # if: ${{ always() }}
