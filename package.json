@@ -1,6 +1,6 @@
 {
-    "name": "oauth-middleware-mcp",
-    "version": "1.0.0",
+    "name": "oauth-middleware",
+    "version": "0.1.0",
     "description": "Generic OAuth 2.1 middleware for MCP servers with Keycloak integration",
     "main": "./src/index.mjs",
     "type": "module",
