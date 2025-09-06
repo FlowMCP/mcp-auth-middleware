@@ -1,6 +1,9 @@
 name: Run Tests on Release
 
-on: push
+on:
+  push:
+    branches: [ main ]
+  pull_request:
 
 permissions:
   contents: read
@@ -24,11 +27,10 @@ jobs:
       - name: Run Jest tests (with coverage)
         run: npm run test:coverage:src
 
-      # Coverage wird nicht übertragen - nur lokal generiert
-      # - name: Upload coverage to Codecov (OIDC)
-      #   uses: codecov/codecov-action@v5
-      #   with:
-      #     use_oidc: true
-      #     files: ./coverage/lcov.info
-      #     fail_ci_if_error: true
-      #     flags: unittests
+      - name: Upload coverage to Codecov (OIDC)
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          files: ./coverage/lcov.info
+          fail_ci_if_error: true
+          flags: unittests
