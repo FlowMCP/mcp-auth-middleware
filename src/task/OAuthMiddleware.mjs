@@ -2,10 +2,10 @@ import express from 'express'
 import jwt from 'jsonwebtoken'
 import fetch from 'node-fetch'
 
-import { DynamicClientRegistration } from './helpers/DynamicClientRegistration.mjs'
-import { KeycloakClient } from './helpers/KeycloakClient.mjs'
-import { OAuthFlowHandler } from './helpers/OAuthFlowHandler.mjs'
-import { TokenValidator } from './helpers/TokenValidator.mjs'
+import { DynamicClientRegistration } from '../helpers/DynamicClientRegistration.mjs'
+import { KeycloakClient } from '../helpers/KeycloakClient.mjs'
+import { OAuthFlowHandler } from '../helpers/OAuthFlowHandler.mjs'
+import { TokenValidator } from '../helpers/TokenValidator.mjs'
 
 
 class OAuthMiddleware {

@@ -7,19 +7,19 @@ const mockKeycloakClientForMultiRealm = jest.fn()
 const mockTokenValidatorForMultiRealm = jest.fn()
 const mockOAuthFlowHandlerForMultiRealm = jest.fn()
 
-jest.unstable_mockModule( '../../../src/task/helpers/KeycloakClient.mjs', () => ({
+jest.unstable_mockModule( '../../../src/helpers/KeycloakClient.mjs', () => ({
     KeycloakClient: {
         createForMultiRealm: mockKeycloakClientForMultiRealm
     }
 }) )
 
-jest.unstable_mockModule( '../../../src/task/helpers/TokenValidator.mjs', () => ({
+jest.unstable_mockModule( '../../../src/helpers/TokenValidator.mjs', () => ({
     TokenValidator: {
         createForMultiRealm: mockTokenValidatorForMultiRealm
     }
 }) )
 
-jest.unstable_mockModule( '../../../src/task/helpers/OAuthFlowHandler.mjs', () => ({
+jest.unstable_mockModule( '../../../src/helpers/OAuthFlowHandler.mjs', () => ({
     OAuthFlowHandler: {
         createForMultiRealm: mockOAuthFlowHandlerForMultiRealm
     }

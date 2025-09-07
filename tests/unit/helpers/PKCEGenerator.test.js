@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals'
-import { PKCEGenerator } from '../../../src/task/helpers/PKCEGenerator.mjs'
+import { PKCEGenerator } from '../../../src/helpers/PKCEGenerator.mjs'
 
 
 describe( 'PKCEGenerator', () => {

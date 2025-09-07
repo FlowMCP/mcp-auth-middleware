@@ -1,5 +1,5 @@
 {
-    "name": "oauth-middleware",
+    "name": "oauth-mcp-middleware",
     "version": "0.1.0",
     "description": "Generic OAuth 2.1 middleware for MCP servers with Keycloak integration",
     "main": "./src/index.mjs",
@@ -18,10 +18,7 @@
         "test:file": "NODE_OPTIONS='--experimental-vm-modules' jest",
         "start:oauth-server": "node tests/manual/0-local-server.mjs",
         "start:x402-server": "node tests/manual/1-x402-style-server.mjs",
-        "start:multi-realm-demo": "node tests/manual/multi-realm-demo.mjs",
-        "setup:keycloak": "node scripts/setup-keycloak.mjs",
-        "validate:production": "node scripts/validate-production-config.mjs",
-        "health:check": "node scripts/healthcheck.mjs"
+        "start:multi-realm-demo": "node tests/manual/multi-realm-demo.mjs"
     },
     "keywords": [
         "oauth",
