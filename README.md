@@ -1,26 +1,39 @@
-# OAuth Middleware for MCP Servers
+# Multi-Realm OAuth 2.1 Middleware for MCP Servers
 
 [![Test](https://img.shields.io/github/actions/workflow/status/flowmcp/oauth-middleware/test-on-release.yml)]() ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Description
+An Express-compatible **multi-realm OAuth 2.1 middleware** designed for securing Model Context Protocol (MCP) server endpoints with industry-standard authentication and multiple Keycloak realm support.
 
-A comprehensive OAuth 2.1 middleware for Model Context Protocol (MCP) servers with full Keycloak integration. This middleware provides secure authentication and authorization for MCP servers, implementing the latest OAuth 2.1 standards including PKCE, Dynamic Client Registration, and Resource Indicators.
+## Overview
 
-## Features
+This middleware provides a powerful **multi-realm OAuth 2.1** authentication solution for MCP servers, enabling different routes to authenticate against different Keycloak realms with route-specific scope requirements. It implements secure authorization code flows with PKCE, automatic discovery endpoints, and comprehensive RFC compliance.
 
-- **OAuth 2.1 Compliant** - Full implementation of OAuth 2.1 with PKCE mandatory
-- **Authorization Code Flow** - Secure authorization with PKCE protection
-- **Client Credentials Flow** - Service-to-service authentication
-- **Dynamic Client Registration** - RFC 7591 compliant automatic client registration
-- **Resource Indicators** - RFC 8707 implementation for fine-grained access
-- **Refresh Token Support** - Seamless token renewal
-- **RBAC Support** - Role-Based Access Control with method-level authorization
-- **Well-Known Endpoints** - OAuth discovery metadata endpoints
-- **Express.js Compatible** - Easy integration with Express applications
-- **JWT Validation** - Secure token validation with JWKS support
-- **Keycloak Integration** - Native support for Keycloak identity management
+> **Transport Support:** This middleware is designed for **HTTP + SSE (Server-Sent Events)** transport, making it ideal for remote MCP servers and web-based clients. It does **not** support stdio transport used by local MCP servers in Claude Desktop.
 
-## Quickstart 
+## Key Features
+
+### 🏛️ Multi-Realm Architecture
+- **Route-to-Realm Mapping** - Different endpoints can use different Keycloak realms
+- **Route-Specific Scopes** - Each route can have its own scope requirements
+- **Automatic URL Generation** - OAuth endpoints auto-generated per realm
+- **Centralized Management** - Single middleware instance manages multiple realms
+
+### 🛡️ OAuth 2.1 & RFC Compliance
+- **OAuth 2.1 Security Standards** - HTTPS enforcement, PKCE required, Bearer tokens only
+- **RFC 8414** - OAuth 2.0 Authorization Server Metadata discovery
+- **RFC 9728** - Protected Resource Metadata with route-specific information
+- **RFC 8707** - Resource Indicators for audience binding validation
+- **Dynamic Client Registration** - RFC 7591 compliant automatic client setup
+
+### 🚀 Production Features
+- **Express Integration** - Drop-in middleware for Express applications
+- **MCP Server Support** - Native FlowMCP RemoteServer integration with SSE transport
+- **Automatic JWKS Aggregation** - Combines JWKS from all configured realms
+- **Discovery Endpoints** - Well-known OAuth metadata endpoints
+- **Comprehensive Testing** - 49 unit tests covering all functionality
+- **Live Demo Server** - Multi-realm demonstration included
+
+## Quick Start
 
 ### Installation
 
@@ -30,485 +43,357 @@ cd oauth-middleware
 npm install
 ```
 
-### Basic Usage
+### Multi-Realm Configuration
 
 ```javascript
-import { OAuthMiddleware } from 'oauth-middleware-mcp'
+import { OAuthMiddleware } from './src/index.mjs'
 import express from 'express'
 
-const app = express()
-
-// Create OAuth middleware
-const { middleware } = OAuthMiddleware.create( {
-    keycloakUrl: 'https://oauth.flowmcp.org',
-    realm: 'mcp-realm',
-    clientId: 'mcp-server-client',
-    clientSecret: process.env.CLIENT_SECRET,
-    redirectUri: 'http://localhost:3000/callback'
-} )
-
-// Use as Express middleware
-app.use( middleware.mcp() )
-
-// Or use with RBAC
-app.use( middleware.mcpWithRBAC() )
-
-app.listen( 3000 )
-```
-
-## Table of Contents
-
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [API Methods](#api-methods)
-- [OAuth Flows](#oauth-flows)
-- [RBAC Configuration](#rbac-configuration)
-- [Well-Known Endpoints](#well-known-endpoints)
-- [Examples](#examples)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Configuration
-
-### Environment Variables
-
-```env
-KEYCLOAK_URL=https://oauth.flowmcp.org
-KEYCLOAK_REALM=mcp-realm
-KEYCLOAK_CLIENT_ID=mcp-server-client
-KEYCLOAK_CLIENT_SECRET=your-client-secret
-REDIRECT_URI=http://localhost:3000/callback
-```
-
-### Middleware Configuration
-
-```javascript
-const { middleware } = OAuthMiddleware.create( {
-    keycloakUrl: process.env.KEYCLOAK_URL,
-    realm: process.env.KEYCLOAK_REALM,
-    clientId: process.env.KEYCLOAK_CLIENT_ID,
-    clientSecret: process.env.KEYCLOAK_CLIENT_SECRET,
-    redirectUri: process.env.REDIRECT_URI,
-    silent: false  // Enable logging
-} )
-```
-
-## API Methods
-
-### `.create()`
-
-Creates a new OAuth middleware instance.
-
-**Method**
-```javascript
-.create( { keycloakUrl, realm, clientId, clientSecret, redirectUri, silent } )
-```
-
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| keycloakUrl | string | Keycloak server URL | Yes |
-| realm | string | Keycloak realm name | Yes |
-| clientId | string | OAuth client ID | Yes |
-| clientSecret | string | OAuth client secret | No |
-| redirectUri | string | OAuth redirect URI | No |
-| silent | boolean | Suppress console output | No |
-
-**Returns**
-```javascript
-{ middleware }
-```
-
-### `.mcp()`
-
-Returns Express middleware for basic OAuth protection.
-
-**Method**
-```javascript
-.mcp()
-```
-
-**Example**
-```javascript
-app.use( '/api', middleware.mcp() )
-```
-
-**Returns**
-Express middleware function
-
-### `.mcpWithRBAC()`
-
-Returns Express middleware with Role-Based Access Control.
-
-**Method**
-```javascript
-.mcpWithRBAC()
-```
-
-**Example**
-```javascript
-middleware.setRBACRules( { rules: rbacRules } )
-app.use( '/api', middleware.mcpWithRBAC() )
-```
-
-**Returns**
-Express middleware function with RBAC enforcement
-
-### `.initiateAuthorizationCodeFlow()`
-
-Initiates OAuth 2.1 Authorization Code Flow with PKCE.
-
-**Method**
-```javascript
-.initiateAuthorizationCodeFlow( { scopes, resourceIndicators } )
-```
-
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| scopes | array | OAuth scopes to request | No |
-| resourceIndicators | array | Resource indicators (RFC 8707) | No |
-
-**Example**
-```javascript
-const { authorizationUrl, state } = middleware.initiateAuthorizationCodeFlow( {
-    scopes: [ 'openid', 'mcp:tools' ],
-    resourceIndicators: [ 'https://api.example.com' ]
-} )
-```
-
-**Returns**
-```javascript
-{ authorizationUrl, state }
-```
-
-### `.handleAuthorizationCallback()`
-
-Handles OAuth authorization callback and exchanges code for tokens.
-
-**Method**
-```javascript
-.handleAuthorizationCallback( { code, state } )
-```
-
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| code | string | Authorization code from callback | Yes |
-| state | string | State parameter from callback | Yes |
-
-**Returns**
-```javascript
-{ success, tokens }
-```
-
-### `.requestClientCredentials()`
-
-Requests access token using Client Credentials flow.
-
-**Method**
-```javascript
-.requestClientCredentials( { scopes } )
-```
-
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| scopes | array | OAuth scopes to request | No |
-
-**Returns**
-```javascript
-{ tokens }
-```
-
-### `.refreshAccessToken()`
-
-Refreshes access token using refresh token.
-
-**Method**
-```javascript
-.refreshAccessToken( { refreshToken } )
-```
-
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| refreshToken | string | Refresh token | Yes |
-
-**Returns**
-```javascript
-{ success, tokens }
-```
-
-### `.registerClient()`
-
-Dynamically registers a new OAuth client (RFC 7591).
-
-**Method**
-```javascript
-.registerClient( { clientName, redirectUris, grantTypes } )
-```
-
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| clientName | string | Name for the new client | Yes |
-| redirectUris | array | Redirect URIs for the client | Yes |
-| grantTypes | array | OAuth grant types | No |
-
-**Returns**
-```javascript
-{ 
-    success, 
-    clientId, 
-    clientSecret, 
-    registrationAccessToken,
-    metadata 
-}
-```
-
-### `.setRBACRules()`
-
-Configures Role-Based Access Control rules.
-
-**Method**
-```javascript
-.setRBACRules( { rules } )
-```
-
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| rules | array | Array of RBAC rule objects | Yes |
-
-**Example**
-```javascript
-const rules = [
-    {
-        path: '/api/admin',
-        methods: [ 'GET', 'POST' ],
-        requiredRoles: [ 'admin' ],
-        requiredScopes: [ 'mcp:admin' ]
-    },
-    {
-        path: '/api/weather',
-        requiredScopes: [ 'mcp:tools:weather' ]
-    }
-]
-
-middleware.setRBACRules( { rules } )
-```
-
-### `.checkRBAC()`
-
-Checks if access is allowed based on RBAC rules.
-
-**Method**
-```javascript
-.checkRBAC( { path, method, roles, scopes } )
-```
-
-**Returns**
-```javascript
-{ allowed, reason }
-```
-
-## OAuth Flows
-
-### Authorization Code Flow with PKCE
-
-```javascript
-// Step 1: Initiate authorization
-const { authorizationUrl, state } = middleware.initiateAuthorizationCodeFlow( {
-    scopes: [ 'openid', 'profile', 'mcp:tools' ]
-} )
-
-// Redirect user to authorizationUrl
-
-// Step 2: Handle callback
-app.get( '/callback', async ( req, res ) => {
-    const { code, state } = req.query
-    
-    const { success, tokens } = await middleware.handleAuthorizationCallback( {
-        code,
-        state
-    } )
-    
-    if( success ) {
-        // Store tokens securely
-        res.json( { access_token: tokens.access_token } )
-    }
-} )
-```
-
-### Client Credentials Flow
-
-```javascript
-const { tokens } = await middleware.requestClientCredentials( {
-    scopes: [ 'mcp:tools' ]
-} )
-
-console.log( 'Access Token:', tokens.access_token )
-```
-
-### Token Refresh
-
-```javascript
-const { success, tokens } = await middleware.refreshAccessToken( {
-    refreshToken: storedRefreshToken
-} )
-
-if( success ) {
-    // Update stored tokens
-    updateTokens( tokens )
-}
-```
-
-## RBAC Configuration
-
-### Define Access Rules
-
-```javascript
-const rbacRules = [
-    // Admin-only endpoints
-    {
-        path: '/api/admin/*',
-        methods: [ 'GET', 'POST', 'PUT', 'DELETE' ],
-        requiredRoles: [ 'admin', 'super-admin' ]
-    },
-    
-    // Tool-specific access
-    {
-        path: '/api/tools/weather',
-        requiredScopes: [ 'mcp:tools:weather' ]
-    },
-    
-    // Combined role and scope requirement
-    {
-        path: '/api/sensitive',
-        methods: [ 'POST' ],
-        requiredRoles: [ 'verified-user' ],
-        requiredScopes: [ 'mcp:resources:write' ]
-    }
-]
-
-middleware.setRBACRules( { rules: rbacRules } )
-```
-
-### Using RBAC Middleware
-
-```javascript
-app.use( middleware.mcpWithRBAC() )
-
-// Access user information in routes
-app.get( '/api/profile', ( req, res ) => {
-    res.json( {
-        user: req.user,
-        roles: req.roles,
-        scopes: req.scopes
-    } )
-} )
-```
-
-## Well-Known Endpoints
-
-The middleware provides OAuth 2.1 discovery endpoints:
-
-```javascript
-// Authorization Server Metadata
-app.get( '/.well-known/oauth-authorization-server', 
-    middleware.wellKnownAuthorizationServer() 
-)
-
-// Protected Resource Metadata
-app.get( '/.well-known/oauth-protected-resource', 
-    middleware.wellKnownProtectedResource() 
-)
-
-// JSON Web Key Set
-app.get( '/.well-known/jwks.json', 
-    middleware.wellKnownJwks() 
-)
-```
-
-## Examples
-
-### Complete Express Application
-
-```javascript
-import express from 'express'
-import { OAuthMiddleware } from 'oauth-middleware-mcp'
-
-const app = express()
-
-// Initialize middleware
-const { middleware } = OAuthMiddleware.create( {
-    keycloakUrl: 'https://oauth.flowmcp.org',
-    realm: 'mcp-realm',
-    clientId: 'mcp-server',
-    clientSecret: process.env.CLIENT_SECRET,
-    redirectUri: 'http://localhost:3000/callback'
-} )
-
-// Configure RBAC
-middleware.setRBACRules( {
-    rules: [
-        {
-            path: '/api/admin',
-            requiredRoles: [ 'admin' ]
+// Create multi-realm OAuth middleware
+const middleware = await OAuthMiddleware.create({
+    realmsByRoute: {
+        '/api': {
+            keycloakUrl: 'http://localhost:8080',
+            realm: 'api-realm',
+            clientId: 'api-client',
+            clientSecret: process.env.API_CLIENT_SECRET,
+            requiredScopes: ['api:read', 'api:write'],
+            resourceUri: 'http://localhost:3000/api'
         },
-        {
-            path: '/api/tools',
-            requiredScopes: [ 'mcp:tools' ]
+        '/admin': {
+            keycloakUrl: 'http://localhost:8080', 
+            realm: 'admin-realm',
+            clientId: 'admin-client',
+            clientSecret: process.env.ADMIN_CLIENT_SECRET,
+            requiredScopes: ['admin:full'],
+            resourceUri: 'http://localhost:3000/admin'
+        },
+        '/public': {
+            keycloakUrl: 'http://localhost:8080',
+            realm: 'public-realm', 
+            clientId: 'public-client',
+            clientSecret: process.env.PUBLIC_CLIENT_SECRET,
+            requiredScopes: ['user:basic'],
+            resourceUri: 'http://localhost:3000/public'
         }
-    ]
-} )
+    }
+})
 
-// Public endpoints
-app.get( '/', ( req, res ) => {
-    res.send( 'Public endpoint' )
-} )
+const app = express()
 
-// Protected endpoints
-app.use( '/api', middleware.mcpWithRBAC() )
+// Add OAuth middleware (handles all OAuth endpoints and protection)
+app.use(middleware.router())
 
-app.get( '/api/data', ( req, res ) => {
-    res.json( { 
-        message: 'Protected data',
-        user: req.user.sub 
-    } )
-} )
+// Your protected routes
+app.get('/api/data', (req, res) => {
+    // Protected by api-realm, requires ['api:read', 'api:write'] scopes
+    res.json({ message: 'API data', user: req.oauth })
+})
 
-app.listen( 3000, () => {
-    console.log( 'Server running on http://localhost:3000' )
-} )
+app.get('/admin/users', (req, res) => {
+    // Protected by admin-realm, requires ['admin:full'] scope  
+    res.json({ message: 'Admin users', user: req.oauth })
+})
+
+app.get('/public/info', (req, res) => {
+    // Protected by public-realm, requires ['user:basic'] scope
+    res.json({ message: 'Public info', user: req.oauth })
+})
+
+app.listen(3000, () => {
+    console.log('Multi-realm OAuth server running on http://localhost:3000')
+})
 ```
 
 ### MCP Server Integration
 
 ```javascript
-import { RemoteServer } from 'mcpServers'
-import { OAuthMiddleware } from 'oauth-middleware-mcp'
+import { RemoteServer } from 'flowmcpServers'
+import { OAuthMiddleware } from './src/index.mjs'
 
-const { middleware } = OAuthMiddleware.create( {
-    keycloakUrl: 'https://oauth.flowmcp.org',
-    realm: 'mcp-realm',
-    clientId: 'mcp-server',
-    clientSecret: process.env.CLIENT_SECRET
-} )
+// Create multi-realm middleware for MCP endpoints
+const middleware = await OAuthMiddleware.create({
+    realmsByRoute: {
+        '/mcp': {
+            keycloakUrl: 'http://localhost:8080',
+            realm: 'mcp-realm',
+            clientId: 'mcp-client', 
+            clientSecret: process.env.MCP_CLIENT_SECRET,
+            requiredScopes: ['mcp:access'],
+            resourceUri: 'http://localhost:3000/mcp'
+        }
+    }
+})
 
-const remoteServer = new RemoteServer( { silent: false } )
-const app = remoteServer.getApp()
+// Create MCP server with OAuth protection
+const server = RemoteServer.create({
+    middleware: middleware.router(),
+    transport: 'sse'
+})
 
-// Apply OAuth protection to all MCP endpoints
-app.use( middleware.mcp() )
+// All /mcp/* endpoints are now protected by mcp-realm
+server.listen(3000)
+```
 
-// Start MCP server
-remoteServer.start()
+## Multi-Realm Architecture
+
+The middleware automatically creates the following structure:
+
+### Route-Specific OAuth Endpoints
+
+Each configured route gets its own OAuth flow endpoints:
+
+```
+/api/auth/login      → Start OAuth flow for API realm
+/api/auth/callback   → OAuth callback for API realm
+/admin/auth/login    → Start OAuth flow for Admin realm  
+/admin/auth/callback → OAuth callback for Admin realm
+/public/auth/login   → Start OAuth flow for Public realm
+/public/auth/callback → OAuth callback for Public realm
+```
+
+### Discovery Endpoints (RFC Compliant)
+
+Automatically generated metadata endpoints:
+
+```
+/.well-known/oauth-authorization-server         → Gateway metadata (RFC 8414)
+/.well-known/jwks.json                         → Aggregated JWKS from all realms
+/.well-known/oauth-protected-resource/api      → API resource metadata (RFC 9728)
+/.well-known/oauth-protected-resource/admin    → Admin resource metadata (RFC 9728)
+/.well-known/oauth-protected-resource/public   → Public resource metadata (RFC 9728)  
+```
+
+### Realm Configuration
+
+Each realm in `realmsByRoute` supports:
+
+| Property | Type | Description | Required |
+|----------|------|-------------|----------|
+| `keycloakUrl` | string | Keycloak server URL | Yes |
+| `realm` | string | Keycloak realm name | Yes |
+| `clientId` | string | OAuth client ID | Yes |
+| `clientSecret` | string | OAuth client secret | Yes |
+| `requiredScopes` | string[] | Required scopes for this route | Yes |
+| `resourceUri` | string | Resource URI for audience binding (RFC 8707) | Yes |
+
+## OAuth 2.1 Security Features
+
+### HTTPS Enforcement
+- **Production**: All endpoints require HTTPS
+- **Development**: Automatic bypass for localhost/127.0.0.1
+
+### Bearer Token Security  
+- **Header Only**: Tokens must be in `Authorization: Bearer <token>` header
+- **URL Forbidden**: Tokens in URL parameters are rejected (OAuth 2.1 requirement)
+- **Format Validation**: Strict Bearer token format enforcement
+
+### PKCE (Proof Key for Code Exchange)
+- **Required**: All authorization flows use PKCE with S256 method
+- **Auto-Generated**: Code challenge/verifier pairs created automatically
+- **Security**: Protects against authorization code interception
+
+## API Methods
+
+### `.create({ realmsByRoute })`
+
+Creates a new multi-realm OAuth middleware instance.
+
+**Parameters:**
+- `realmsByRoute` (object): Route-to-realm mapping configuration
+
+**Example:**
+```javascript
+const middleware = await OAuthMiddleware.create({
+    realmsByRoute: {
+        '/api': { /* realm config */ },
+        '/admin': { /* realm config */ }
+    }
+})
+```
+
+**Returns:**
+```javascript
+{
+    router(): ExpressRouter,    // Express router with all OAuth endpoints
+    getRoutes(): string[],      // Get all configured routes
+    getRealms(): object[],      // Get all realm configurations
+    getRouteConfig(route): object  // Get config for specific route
+}
+```
+
+### `.router()`
+
+Returns the Express router containing all OAuth endpoints and middleware.
+
+**Example:**
+```javascript
+const app = express()
+app.use(middleware.router())  // Adds all OAuth endpoints and protection
+```
+
+### `.getRoutes()`
+
+Returns array of all configured routes.
+
+**Example:**
+```javascript
+const routes = middleware.getRoutes()
+// Returns: ['/api', '/admin', '/public']
+```
+
+### `.getRealms()`
+
+Returns detailed information about all configured realms.
+
+**Example:**
+```javascript
+const realms = middleware.getRealms()
+// Returns: [{ route: '/api', realm: 'api-realm', ... }]
+```
+
+### `.getRouteConfig(route)`
+
+Returns configuration for a specific route.
+
+**Example:**
+```javascript
+const config = middleware.getRouteConfig('/api')
+// Returns: { keycloakUrl: '...', realm: 'api-realm', ... }
+```
+
+## Request Context
+
+Protected endpoints receive OAuth context via `req.oauth`:
+
+```javascript
+app.get('/protected', (req, res) => {
+    console.log('OAuth Context:', req.oauth)
+    // {
+    //   user: { sub: 'user-id', preferred_username: 'user', ... },
+    //   scopes: ['api:read', 'api:write'],
+    //   route: '/api',
+    //   realm: 'api-realm',
+    //   clientId: 'api-client'
+    // }
+})
+```
+
+## Testing & Demo
+
+### Run Test Suite
+
+```bash
+npm test                    # Run all tests (49 tests)
+npm run test:coverage:src   # Run with coverage report  
+```
+
+### Multi-Realm Demo Server
+
+```bash
+node tests/manual/multi-realm-demo.mjs
+```
+
+The demo server showcases:
+- 3 protected routes with different realms
+- All discovery endpoints  
+- OAuth flow endpoints
+- RFC compliance validation
+- Live testing endpoints
+
+## Migration from Single-Realm
+
+If upgrading from a single-realm setup:
+
+### Before (Single-Realm)
+```javascript
+const middleware = OAuthMiddleware.create({
+    keycloakUrl: 'http://localhost:8080',
+    realm: 'my-realm', 
+    clientId: 'my-client',
+    clientSecret: 'my-secret'
+})
+```
+
+### After (Multi-Realm)
+```javascript
+const middleware = await OAuthMiddleware.create({
+    realmsByRoute: {
+        '/': {  // Root route for backward compatibility
+            keycloakUrl: 'http://localhost:8080',
+            realm: 'my-realm',
+            clientId: 'my-client', 
+            clientSecret: 'my-secret',
+            requiredScopes: ['access'],  // Now required
+            resourceUri: 'http://localhost:3000'  // Now required
+        }
+    }
+})
+```
+
+### Breaking Changes
+- **API Change**: `OAuthMiddleware.create()` now requires `realmsByRoute` object
+- **Async**: Middleware creation is now `async` (use `await`)
+- **Required Fields**: `requiredScopes` and `resourceUri` are now mandatory
+- **Method Removal**: `.mcp()`, `.mcpWithRBAC()`, `.wellKnownXxx()` methods removed (handled by router)
+
+## RFC Compliance
+
+This middleware implements the following RFC standards:
+
+### RFC 8414 - OAuth 2.0 Authorization Server Metadata
+- Gateway metadata endpoint aggregates all realm information
+- Standard discovery at `/.well-known/oauth-authorization-server`
+- Multi-realm extensions for route-to-realm mapping
+
+### RFC 9728 - OAuth 2.0 Protected Resource Metadata  
+- Route-specific resource metadata endpoints
+- Audience binding information for each protected resource
+- Standard discovery at `/.well-known/oauth-protected-resource/{route}`
+
+### RFC 8707 - OAuth 2.0 Resource Indicators
+- Resource parameters included in all OAuth flows
+- Audience binding validation for access tokens
+- Support for resource-specific token issuance
+
+### OAuth 2.1 Security Profile
+- HTTPS enforcement for all endpoints
+- PKCE required for all authorization flows
+- Bearer token format enforcement
+- URL parameter token prohibition
+
+## Environment Variables
+
+For development and testing:
+
+```bash
+# Keycloak Configuration
+KEYCLOAK_URL=http://localhost:8080
+
+# API Realm
+API_REALM=api-realm
+API_CLIENT_ID=api-client
+API_CLIENT_SECRET=your-api-secret
+
+# Admin Realm  
+ADMIN_REALM=admin-realm
+ADMIN_CLIENT_ID=admin-client
+ADMIN_CLIENT_SECRET=your-admin-secret
+
+# Public Realm
+PUBLIC_REALM=public-realm
+PUBLIC_CLIENT_ID=public-client
+PUBLIC_CLIENT_SECRET=your-public-secret
 ```
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Run tests (`npm test`)
+4. Commit your changes (`git commit -m 'Add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
 
 ## License
 
@@ -516,10 +401,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For issues and questions, please use the [GitHub Issues](https://github.com/flowmcp/oauth-middleware/issues) page.
-
-## Acknowledgments
-
-- Built for the [Model Context Protocol](https://modelcontextprotocol.io/)
-- Powered by [Keycloak](https://www.keycloak.org/)
-- Following OAuth 2.1 standards
+- **Issues**: [GitHub Issues](https://github.com/flowmcp/oauth-middleware/issues)
+- **Documentation**: This README and inline code documentation
+- **Examples**: See `tests/manual/multi-realm-demo.mjs` for complete working examples

@@ -6,7 +6,7 @@ jest.unstable_mockModule( 'node-fetch', () => ({
     default: mockFetch
 }) )
 
-const { DynamicClientRegistration } = await import( '../../../src/helpers/DynamicClientRegistration.mjs' )
+const { DynamicClientRegistration } = await import( '../../../src/task/helpers/DynamicClientRegistration.mjs' )
 
 
 describe( 'DynamicClientRegistration', () => {
