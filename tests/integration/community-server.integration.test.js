@@ -8,6 +8,16 @@
 import { OAuthMiddleware } from '../../src/index.mjs'
 import { TestUtils } from '../helpers/utils.mjs'
 
+// Test configuration using .auth.env.example
+const config = {
+    envPath: '../../.auth.env.example',
+    providerUrl: 'https://your-first-auth0-domain.auth0.com',
+    realm: 'test-realm',
+    clientId: 'test-client-id',
+    clientSecret: 'test-client-secret',
+    silent: true
+}
+
 describe( 'Community Server Integration', () => {
     let middleware
     let testConfig
@@ -17,7 +27,8 @@ describe( 'Community Server Integration', () => {
         testConfig = {
             realmsByRoute: {
                 '/mcp': {
-                    keycloakUrl: 'http://localhost:8080',
+                    providerName: 'auth0',
+                    providerUrl: config.providerUrl,
                     realm: 'test-realm',
                     clientId: 'test-client',
                     clientSecret: 'test-secret',
@@ -25,7 +36,8 @@ describe( 'Community Server Integration', () => {
                     resourceUri: 'http://localhost:3000/mcp'
                 },
                 '/api': {
-                    keycloakUrl: 'http://localhost:8080',
+                    providerName: 'auth0',
+                    providerUrl: config.providerUrl,
                     realm: 'api-realm', 
                     clientId: 'api-client',
                     clientSecret: 'api-secret',
@@ -152,7 +164,8 @@ describe( 'Community Server Integration', () => {
             const compatibilityMiddleware = await OAuthMiddleware.create({
                 realmsByRoute: {
                     '/': { // Root route for maximum compatibility
-                        keycloakUrl: 'http://localhost:8080',
+                        providerName: 'auth0',
+                        providerUrl: config.providerUrl,
                         realm: 'mcp-realm',
                         clientId: 'mcp-client',
                         clientSecret: 'mcp-secret',
@@ -180,7 +193,8 @@ describe( 'Community Server Integration', () => {
             const rootMiddleware = await OAuthMiddleware.create({
                 realmsByRoute: {
                     '/': {
-                        keycloakUrl: 'http://localhost:8080',
+                        providerName: 'auth0',
+                        providerUrl: config.providerUrl,
                         realm: 'legacy-realm',
                         clientId: 'legacy-client',
                         clientSecret: 'legacy-secret',
@@ -208,8 +222,8 @@ describe( 'Community Server Integration', () => {
             const mcpRealm = realms.find( r => r.route === '/mcp' )
             const apiRealm = realms.find( r => r.route === '/api' )
             
-            expect( mcpRealm.keycloakUrl ).toBe( 'http://localhost:8080' )
-            expect( apiRealm.keycloakUrl ).toBe( 'http://localhost:8080' )
+            expect( mcpRealm.providerUrl ).toBe( 'https://your-first-auth0-domain.auth0.com' )
+            expect( apiRealm.providerUrl ).toBe( 'https://your-first-auth0-domain.auth0.com' )
             
             // Each realm should have its own resource URI
             expect( mcpRealm.resourceUri ).toBe( 'http://localhost:3000/mcp' )
@@ -256,7 +270,8 @@ describe( 'Community Server Integration', () => {
             const perfMiddleware = await OAuthMiddleware.create({
                 realmsByRoute: {
                     '/perf1': {
-                        keycloakUrl: 'http://localhost:8080',
+                        providerName: 'auth0',
+                        providerUrl: config.providerUrl,
                         realm: 'perf-realm-1',
                         clientId: 'perf-client-1',
                         clientSecret: 'perf-secret-1',
@@ -264,7 +279,8 @@ describe( 'Community Server Integration', () => {
                         resourceUri: 'http://localhost:3000/perf1'
                     },
                     '/perf2': {
-                        keycloakUrl: 'http://localhost:8080',
+                        providerName: 'auth0',
+                        providerUrl: config.providerUrl,
                         realm: 'perf-realm-2', 
                         clientId: 'perf-client-2',
                         clientSecret: 'perf-secret-2',

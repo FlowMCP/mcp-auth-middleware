@@ -6,6 +6,17 @@
  */
 
 import { OAuthMiddleware } from '../../src/index.mjs'
+import { TestUtils } from '../helpers/utils.mjs'
+
+// Test configuration using .auth.env.example
+const config = {
+    envPath: '../../.auth.env.example',
+    providerUrl: 'https://your-first-auth0-domain.auth0.com',
+    realm: 'test-realm',
+    clientId: 'test-client-id',
+    clientSecret: 'test-client-secret',
+    silent: true
+}
 
 describe( 'Performance Benchmarks', () => {
     let singleRealmMiddleware
@@ -16,7 +27,8 @@ describe( 'Performance Benchmarks', () => {
         singleRealmMiddleware = await OAuthMiddleware.create({
             realmsByRoute: {
                 '/': {
-                    keycloakUrl: 'http://localhost:8080',
+                    providerName: 'auth0',
+                    providerUrl: config.providerUrl,
                     realm: 'single-realm',
                     clientId: 'single-client',
                     clientSecret: 'single-secret',
@@ -31,7 +43,8 @@ describe( 'Performance Benchmarks', () => {
         multiRealmMiddleware = await OAuthMiddleware.create({
             realmsByRoute: {
                 '/api': {
-                    keycloakUrl: 'http://localhost:8080',
+                    providerName: 'auth0',
+                    providerUrl: config.providerUrl,
                     realm: 'api-realm',
                     clientId: 'api-client',
                     clientSecret: 'api-secret',
@@ -39,7 +52,8 @@ describe( 'Performance Benchmarks', () => {
                     resourceUri: 'http://localhost:3000/api'
                 },
                 '/admin': {
-                    keycloakUrl: 'http://localhost:8080',
+                    providerName: 'auth0',
+                    providerUrl: config.providerUrl,
                     realm: 'admin-realm',
                     clientId: 'admin-client',
                     clientSecret: 'admin-secret',
@@ -47,7 +61,8 @@ describe( 'Performance Benchmarks', () => {
                     resourceUri: 'http://localhost:3000/admin'
                 },
                 '/public': {
-                    keycloakUrl: 'http://localhost:8080',
+                    providerName: 'auth0',
+                    providerUrl: config.providerUrl,
                     realm: 'public-realm',
                     clientId: 'public-client',
                     clientSecret: 'public-secret',
@@ -66,7 +81,8 @@ describe( 'Performance Benchmarks', () => {
             const testMiddleware = await OAuthMiddleware.create({
                 realmsByRoute: {
                     '/test': {
-                        keycloakUrl: 'http://localhost:8080',
+                        providerName: 'auth0',
+                        providerUrl: config.providerUrl,
                         realm: 'test-realm',
                         clientId: 'test-client',
                         clientSecret: 'test-secret',
@@ -90,7 +106,8 @@ describe( 'Performance Benchmarks', () => {
             // Generate 5 realms
             for( let i = 1; i <= realmCount; i++ ) {
                 realms[`/realm${i}`] = {
-                    keycloakUrl: 'http://localhost:8080',
+                    providerName: 'auth0',
+                    providerUrl: config.providerUrl,
                     realm: `test-realm-${i}`,
                     clientId: `test-client-${i}`,
                     clientSecret: `test-secret-${i}`,
@@ -183,11 +200,6 @@ describe( 'Performance Benchmarks', () => {
             
             // Multi-realm should not be more than 25x slower than single-realm (realistic expectation)
             expect( performanceRatio ).toBeLessThan( 25.0 )
-            
-            console.log( `Performance comparison:` )
-            console.log( `  Single-realm: ${( singleTotalTime / iterations ).toFixed(3)}ms avg` )
-            console.log( `  Multi-realm:  ${( multiTotalTime / iterations ).toFixed(3)}ms avg` )
-            console.log( `  Ratio: ${performanceRatio.toFixed(2)}x` )
         } )
     } )
     
@@ -260,7 +272,8 @@ describe( 'Performance Benchmarks', () => {
                     OAuthMiddleware.create({
                         realmsByRoute: {
                             [`/test-${i}`]: {
-                                keycloakUrl: 'http://localhost:8080',
+                                providerName: 'auth0',
+                                providerUrl: config.providerUrl,
                                 realm: `test-realm-${i}`,
                                 clientId: `test-client-${i}`,
                                 clientSecret: `test-secret-${i}`,
@@ -280,8 +293,6 @@ describe( 'Performance Benchmarks', () => {
                 
                 // Each middleware instance should use less than 10MB
                 expect( memoryPerInstance ).toBeLessThan( 10 * 1024 * 1024 )
-                
-                console.log( `Memory usage per middleware instance: ${( memoryPerInstance / 1024 / 1024 ).toFixed(2)}MB` )
             } )
         }, 20000 )
     } )

@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken'
 import jwksClient from 'jwks-client'
 
+import { Logger } from './Logger.mjs'
+
 
 class TokenValidator {
     #routeConfigs
@@ -180,9 +182,10 @@ class TokenValidator {
 
     #processValidationResult( { err, decoded, route, token } ) {
         if( err ) {
-            if( !this.#silent ) {
-                console.log( `Token validation failed for route ${route}: ${err.message}` )
-            }
+            Logger.error( { 
+                silent: this.#silent, 
+                message: `Token validation failed for route ${route}: ${err.message}` 
+            } )
             
             return {
                 isValid: false,
@@ -191,9 +194,10 @@ class TokenValidator {
                 route
             }
         } else {
-            if( !this.#silent ) {
-                console.log( `Token validation successful for route ${route}` )
-            }
+            Logger.info( { 
+                silent: this.#silent, 
+                message: `Token validation successful for route ${route}` 
+            } )
             
             return {
                 isValid: true,

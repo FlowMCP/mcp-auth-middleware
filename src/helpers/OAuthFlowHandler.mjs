@@ -1,6 +1,7 @@
 import fetch from 'node-fetch'
 import crypto from 'crypto'
 
+import { Logger } from './Logger.mjs'
 import { PKCEGenerator } from './PKCEGenerator.mjs'
 
 
@@ -23,7 +24,7 @@ class OAuthFlowHandler {
         // Initialize all route configurations
         Object.entries( realmsByRoute ).forEach( ( [ route, config ] ) => {
             const normalizedConfig = {
-                keycloakUrl: config.keycloakUrl,
+                providerUrl: config.providerUrl,
                 realm: config.realm,
                 clientId: config.clientId,
                 clientSecret: config.clientSecret,
@@ -31,9 +32,15 @@ class OAuthFlowHandler {
                 authFlow: config.authFlow || 'authorization_code',
                 requiredScopes: config.requiredScopes || [],
                 resourceUri: config.resourceUri || '',
-                authorizationEndpoint: `${config.keycloakUrl}/realms/${config.realm}/protocol/openid-connect/auth`,
-                tokenEndpoint: `${config.keycloakUrl}/realms/${config.realm}/protocol/openid-connect/token`,
-                deviceAuthorizationEndpoint: `${config.keycloakUrl}/realms/${config.realm}/protocol/openid-connect/auth/device`
+                authorizationEndpoint: config.authorizationUrl || (config.providerUrl.includes('auth0.com') ? 
+                    `${config.providerUrl}/authorize` : 
+                    `${config.providerUrl}/realms/${config.realm}/protocol/openid-connect/auth`),
+                tokenEndpoint: config.tokenUrl || (config.providerUrl.includes('auth0.com') ? 
+                    `${config.providerUrl}/oauth/token` : 
+                    `${config.providerUrl}/realms/${config.realm}/protocol/openid-connect/token`),
+                deviceAuthorizationEndpoint: config.providerUrl.includes('auth0.com') ? 
+                    `${config.providerUrl}/oauth/device/code` : 
+                    `${config.providerUrl}/realms/${config.realm}/protocol/openid-connect/auth/device`
             }
             
             handler.#routeConfigs.set( route, normalizedConfig )
@@ -43,18 +50,24 @@ class OAuthFlowHandler {
     }
 
 
-    static create( { keycloakUrl, realm, clientId, clientSecret, redirectUri, silent = false } ) {
+    static create( { providerUrl, realm, clientId, clientSecret, redirectUri, silent = false } ) {
         const handler = new OAuthFlowHandler( { silent } )
         
         const config = {
-            keycloakUrl,
+            providerUrl,
             realm,
             clientId,
             clientSecret,
             redirectUri,
-            authorizationEndpoint: `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth`,
-            tokenEndpoint: `${keycloakUrl}/realms/${realm}/protocol/openid-connect/token`,
-            deviceAuthorizationEndpoint: `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth/device`
+            authorizationEndpoint: providerUrl.includes('auth0.com') ? 
+                `${providerUrl}/authorize` : 
+                `${providerUrl}/realms/${realm}/protocol/openid-connect/auth`,
+            tokenEndpoint: providerUrl.includes('auth0.com') ? 
+                `${providerUrl}/oauth/token` : 
+                `${providerUrl}/realms/${realm}/protocol/openid-connect/token`,
+            deviceAuthorizationEndpoint: providerUrl.includes('auth0.com') ? 
+                `${providerUrl}/oauth/device/code` : 
+                `${providerUrl}/realms/${realm}/protocol/openid-connect/auth/device`
         }
         
         // For backwards compatibility - store as single route
@@ -106,9 +119,10 @@ class OAuthFlowHandler {
         
         const authorizationUrl = `${config.authorizationEndpoint}?${params.toString()}`
         
-        if( !this.#silent ) {
-            console.log( `Authorization URL for route ${route}: ${authorizationUrl}` )
-        }
+        Logger.info( { 
+            silent: this.#silent, 
+            message: `Authorization URL for route ${route}: ${authorizationUrl}` 
+        } )
 
         return { authorizationUrl, state, route }
     }
@@ -167,14 +181,15 @@ class OAuthFlowHandler {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: params
+            body: params.toString()
         } )
         
         const tokens = await response.json()
         
-        if( !this.#silent ) {
-            console.log( `Client credentials obtained for route ${route}` )
-        }
+        Logger.info( { 
+            silent: this.#silent, 
+            message: `Client credentials obtained for route ${route}` 
+        } )
 
         return { tokens, route }
     }
@@ -205,7 +220,7 @@ class OAuthFlowHandler {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: params
+            body: params.toString()
         } )
         
         const tokens = await response.json()
@@ -278,8 +293,11 @@ class OAuthFlowHandler {
             this.#authorizationRequests.delete( state )
         } )
 
-        if( !this.#silent && expiredStates.length > 0 ) {
-            console.log( `Cleared ${expiredStates.length} expired authorization requests` )
+        if( expiredStates.length > 0 ) {
+            Logger.info( { 
+                silent: this.#silent, 
+                message: `Cleared ${expiredStates.length} expired authorization requests` 
+            } )
         }
     }
 
@@ -314,7 +332,7 @@ class OAuthFlowHandler {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: params
+            body: params.toString()
         } )
         
         const tokens = await response.json()

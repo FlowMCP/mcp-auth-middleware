@@ -72,8 +72,9 @@ src/
 const middleware = await OAuthMiddleware.create({
     realmsByRoute: {
         '/route': {
-            keycloakUrl: 'string',
-            realm: 'string', 
+            providerName: 'auth0',     // Provider identifier
+            providerUrl: 'string',     // Provider base URL
+            realm: 'string',           // Provider realm
             clientId: 'string',
             clientSecret: 'string',
             requiredScopes: ['array'],
@@ -135,11 +136,31 @@ npm run test:coverage:src   # Run with coverage report
 4. **Validate Changes**: Run test suite before modifications
 5. **Maintain Security**: Follow OAuth 2.1 security standards
 
+## Environment Configuration
+
+### New TestUtils API Pattern
+Use `TestUtils.getEnvParams()` with selection pattern:
+
+```javascript
+const credentials = TestUtils.getEnvParams( {
+    'envPath': './../../.auth.env',
+    'selection': [
+        [ 'AUTH0_DOMAIN', 'AUTH0_DOMAIN' ],
+        [ 'AUTH0_CLIENT_ID', 'AUTH0_CLIENT_ID' ],
+        [ 'AUTH0_CLIENT_SECRET', 'AUTH0_CLIENT_SECRET' ]
+    ]
+} )
+```
+
+- **envPath**: Never hardcoded, always configurable
+- **selection**: Array of [outputKey, envKey] mappings
+- Replaces legacy `getAuth0Params()` method
+
 ## Key Technologies
 
 - **Node.js 22** with ES modules (.mjs)
 - **Express.js** for HTTP server
-- **Keycloak** for OAuth provider
+- **Multi-Provider Support**: Auth0, Keycloak (extensible)
 - **Jest** for testing
 - **OAuth 2.1** security profile
 - **RFC 8414, 9728, 8707** compliance

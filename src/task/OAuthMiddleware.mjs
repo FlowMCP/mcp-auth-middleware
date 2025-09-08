@@ -3,8 +3,9 @@ import jwt from 'jsonwebtoken'
 import fetch from 'node-fetch'
 
 import { DynamicClientRegistration } from '../helpers/DynamicClientRegistration.mjs'
-import { KeycloakClient } from '../helpers/KeycloakClient.mjs'
+import { Logger } from '../helpers/Logger.mjs'
 import { OAuthFlowHandler } from '../helpers/OAuthFlowHandler.mjs'
+import { ProviderFactory } from '../providers/ProviderFactory.mjs'
 import { TokenValidator } from '../helpers/TokenValidator.mjs'
 
 
@@ -49,8 +50,8 @@ class OAuthMiddleware {
             validatedRealmsByRoute[routePath] = validatedConfig
         } )
 
-        // Create multi-realm helper instances
-        const keycloakClient = await KeycloakClient.createForMultiRealm( { 
+        // Create multi-realm provider instances
+        const { providers } = ProviderFactory.createProvidersForRoutes( { 
             realmsByRoute: validatedRealmsByRoute,
             silent: this.#silent
         } )
@@ -64,10 +65,10 @@ class OAuthMiddleware {
         const firstRoute = Array.from( this.#routeConfigs.keys() )[0]
         const firstConfig = this.#routeConfigs.get( firstRoute )
         
-        // Extract base redirect URI (remove route-specific part)
+        // Extract base redirect URI from resourceUri or use default
         let baseRedirectUri = 'http://localhost:3000'
-        if( firstConfig.redirectUri ) {
-            const url = new URL( firstConfig.redirectUri )
+        if( firstConfig.resourceUri ) {
+            const url = new URL( firstConfig.resourceUri )
             baseRedirectUri = `${url.protocol}//${url.host}`
         }
         
@@ -79,13 +80,13 @@ class OAuthMiddleware {
 
         // Store shared helper instances
         this.#routeClients.set( 'shared', {
-            keycloakClient,
+            providers,
             tokenValidator,
             oauthFlowHandler
         } )
         
         if( !this.#silent ) {
-            console.log( `✅ Initialized ${this.#routeConfigs.size} OAuth routes with shared multi-realm helpers` )
+            this.#displayRoutesSummary()
         }
     }
 
@@ -95,31 +96,46 @@ class OAuthMiddleware {
             throw new Error( `Invalid route path: ${routePath}` )
         }
         
-        const required = [ 'keycloakUrl', 'realm', 'clientId', 'clientSecret' ]
+        const required = [ 'providerUrl', 'realm', 'clientId', 'clientSecret' ]
         const missing = required.filter( field => !config[field] )
         
         if( missing.length > 0 ) {
             throw new Error( `Missing required fields for route ${routePath}: ${missing.join( ', ' )}` )
         }
         
-        // Auto-generate URLs if not provided
-        const baseUrl = `${config.keycloakUrl}/realms/${config.realm}`
+        // Auto-generate URLs based on provider type
+        let baseUrl, authorizationUrl, tokenUrl, jwksUrl, userInfoUrl, introspectionUrl
         
-        return {
+        // Auth0 detection
+        
+        // Detect Auth0
+        if( config.providerUrl.includes( 'auth0.com' ) ) {
+            baseUrl = config.providerUrl
+            authorizationUrl = `${baseUrl}/authorize`
+            tokenUrl = `${baseUrl}/oauth/token`
+            jwksUrl = `${baseUrl}/.well-known/jwks.json`
+            userInfoUrl = `${baseUrl}/userinfo`
+            introspectionUrl = `${baseUrl}/oauth/token/introspection`
+        } else {
+            // Keycloak/standard OIDC
+            baseUrl = `${config.providerUrl}/realms/${config.realm}`
+            authorizationUrl = `${baseUrl}/protocol/openid-connect/auth`
+            tokenUrl = `${baseUrl}/protocol/openid-connect/token`
+            jwksUrl = `${baseUrl}/protocol/openid-connect/certs`
+            userInfoUrl = `${baseUrl}/protocol/openid-connect/userinfo`
+            introspectionUrl = `${baseUrl}/protocol/openid-connect/token/introspect`
+        }
+        
+        const finalConfig = {
             ...config,
             routePath,
             
             // OAuth URLs (auto-generated if missing)
-            authorizationUrl: config.authorizationUrl || 
-                `${baseUrl}/protocol/openid-connect/auth`,
-            tokenUrl: config.tokenUrl || 
-                `${baseUrl}/protocol/openid-connect/token`,
-            jwksUrl: config.jwksUrl || 
-                `${baseUrl}/protocol/openid-connect/certs`,
-            userInfoUrl: config.userInfoUrl || 
-                `${baseUrl}/protocol/openid-connect/userinfo`,
-            introspectionUrl: config.introspectionUrl || 
-                `${baseUrl}/protocol/openid-connect/token/introspect`,
+            authorizationUrl: config.authorizationUrl || authorizationUrl,
+            tokenUrl: config.tokenUrl || tokenUrl,
+            jwksUrl: config.jwksUrl || jwksUrl,
+            userInfoUrl: config.userInfoUrl || userInfoUrl,
+            introspectionUrl: config.introspectionUrl || introspectionUrl,
             
             // Default values
             authFlow: config.authFlow || 'authorization-code',
@@ -127,6 +143,9 @@ class OAuthMiddleware {
             requiredRoles: config.requiredRoles || [],
             allowAnonymous: config.allowAnonymous || false
         }
+        
+        
+        return finalConfig
     }
 
 
@@ -204,18 +223,40 @@ class OAuthMiddleware {
                 resourceIndicators: [ resourceUri ]
             } )
         
-        if( !this.#silent ) {
-            console.log( `🔐 Login initiated for route ${routePath}, state: ${state}` )
-        }
+        this.#logRouteAccess( { 
+            routePath, 
+            method: 'LOGIN', 
+            status: 'initiated', 
+            user: { sub: 'unauthenticated' } 
+        } )
         
         res.redirect( authorizationUrl )
     }
 
 
     async #handleCallback( { req, res, routePath } ) {
-        const { code, state } = req.query
+        const { code, state, error, error_description } = req.query
         const sharedHelpers = this.#routeClients.get( 'shared' )
         
+        // Handle OAuth error responses (user denied, etc.)
+        if( error ) {
+            this.#logRouteAccess( {
+                routePath,
+                method: 'CALLBACK',
+                status: 'error',
+                user: { sub: 'unauthenticated' },
+                error: error,
+                error_description: error_description
+            } )
+            
+            return res.status( 400 ).json( {
+                error: error,
+                error_description: error_description || 'Authorization failed',
+                login_url: `${req.protocol}://${req.get( 'host' )}${routePath}/auth/login`
+            } )
+        }
+        
+        // Handle missing code/state for successful flow
         if( !code || !state ) {
             return res.status( 400 ).json( {
                 error: 'invalid_request',
@@ -232,6 +273,13 @@ class OAuthMiddleware {
             
             if( success ) {
                 const config = this.#routeConfigs.get( route )
+                
+                this.#logRouteAccess( { 
+                    routePath: route, 
+                    method: 'CALLBACK', 
+                    status: 'success', 
+                    user: { sub: 'authenticated' } 
+                } )
                 
                 res.json( {
                     message: 'Authentication successful',
@@ -251,9 +299,10 @@ class OAuthMiddleware {
                 } )
             }
         } catch( callbackError ) {
-            if( !this.#silent ) {
-                console.error( `❌ Callback error for ${routePath}:`, callbackError )
-            }
+            Logger.error( { 
+                silent: this.#silent, 
+                message: `Callback error for ${routePath}: ${callbackError.message}` 
+            } )
             
             res.status( 500 ).json( {
                 error: 'server_error',
@@ -273,7 +322,7 @@ class OAuthMiddleware {
             // Required fields per RFC 9728
             resource: resourceUri,
             authorization_servers: [
-                `${config.keycloakUrl}/realms/${config.realm}`
+                `${config.providerUrl}/realms/${config.realm}`
             ],
             
             // Optional but recommended fields
@@ -298,7 +347,7 @@ class OAuthMiddleware {
             links: [
                 {
                     rel: 'authorization_server',
-                    href: `${config.keycloakUrl}/realms/${config.realm}`
+                    href: `${config.providerUrl}/realms/${config.realm}`
                 },
                 {
                     rel: 'login',
@@ -359,7 +408,7 @@ class OAuthMiddleware {
         
         const realms = Array.from( this.#routeConfigs.values() )
             .reduce( ( acc, config ) => {
-                const realmKey = `${config.keycloakUrl}/realms/${config.realm}`
+                const realmKey = `${config.providerUrl}/realms/${config.realm}`
                 if( !acc[realmKey] ) {
                     // RFC 8414 compliant Authorization Server Metadata
                     acc[realmKey] = {
@@ -438,7 +487,7 @@ class OAuthMiddleware {
                 .reduce( ( acc, [ route, config ] ) => {
                     acc[route] = {
                         realm: config.realm,
-                        issuer: `${config.keycloakUrl}/realms/${config.realm}`,
+                        issuer: `${config.providerUrl}/realms/${config.realm}`,
                         login_endpoint: `${baseUrl}${route}/auth/login`,
                         protected_resource_metadata: `${baseUrl}/.well-known/oauth-protected-resource${route}`
                     }
@@ -474,12 +523,22 @@ class OAuthMiddleware {
             const jwkPromises = Array.from( this.#routeConfigs.keys() )
                 .map( async ( route ) => {
                     try {
-                        const { jwksData } = await sharedHelpers.keycloakClient.getJwksForRoute( { route } )
+                        const provider = sharedHelpers.providers[route]
+                        if( !provider ) {
+                            throw new Error( `No provider found for route ${route}` )
+                        }
+                        
+                        const routeConfig = this.#routeConfigs.get( route )
+                        const { endpoints } = provider.generateEndpoints( { config: routeConfig } )
+                        
+                        const response = await fetch( endpoints.jwksUrl )
+                        const jwksData = await response.json()
                         return jwksData.keys || []
                     } catch( error ) {
-                        if( !this.#silent ) {
-                            console.warn( `Failed to load JWKS for route ${route}: ${error.message}` )
-                        }
+                        Logger.warn( { 
+                            silent: this.#silent, 
+                            message: `Failed to load JWKS for route ${route}: ${error.message}` 
+                        } )
                         return []
                     }
                 } )
@@ -505,9 +564,10 @@ class OAuthMiddleware {
             
             res.json( { keys: uniqueKeys } )
         } catch( error ) {
-            if( !this.#silent ) {
-                console.error( '❌ Global JWKS error:', error )
-            }
+            Logger.error( { 
+                silent: this.#silent, 
+                message: `Global JWKS error: ${error.message}` 
+            } )
             
             res.status( 500 ).json( {
                 error: 'server_error',
@@ -550,17 +610,35 @@ class OAuthMiddleware {
         } )
         
         if( !validationResult.isValid ) {
+            this.#logRouteAccess( { 
+                routePath, 
+                method: req.method, 
+                status: 'denied', 
+                user: { sub: 'invalid_token' } 
+            } )
             return this.#sendUnauthorized( { res, routePath, reason: validationResult.error || 'invalid_token' } )
         }
         
         // Check audience binding result
         if( validationResult.audienceBinding && !validationResult.audienceBinding.isValidAudience ) {
+            this.#logRouteAccess( { 
+                routePath, 
+                method: req.method, 
+                status: 'denied', 
+                user: validationResult.decoded 
+            } )
             return this.#sendForbidden( { res, routePath, reason: 'invalid_audience' } )
         }
         
         // Check route-specific roles and scopes
         const authzCheck = this.#checkAuthorization( { decoded: validationResult.decoded, config } )
         if( !authzCheck.allowed ) {
+            this.#logRouteAccess( { 
+                routePath, 
+                method: req.method, 
+                status: 'denied', 
+                user: validationResult.decoded 
+            } )
             return this.#sendForbidden( { res, routePath, reason: authzCheck.reason } )
         }
         
@@ -570,6 +648,13 @@ class OAuthMiddleware {
         req.authRoute = routePath
         req.scopes = validationResult.decoded.scope ? validationResult.decoded.scope.split( ' ' ) : []
         req.roles = validationResult.decoded.realm_access?.roles || []
+        
+        this.#logRouteAccess( { 
+            routePath, 
+            method: req.method, 
+            status: 'success', 
+            user: validationResult.decoded 
+        } )
         
         next()
     }
@@ -670,6 +755,96 @@ class OAuthMiddleware {
     }
 
 
+    // Display Methods
+
+    #log( message ) {
+        Logger.info( { silent: this.#silent, message } )
+    }
+
+
+    #displayRoutesSummary() {
+        this.#log( '\n🔐 OAuth Middleware Configuration' )
+        this.#log( '═══════════════════════════════════════════════════════════════════════════════' )
+        
+        const routeCount = this.#routeConfigs.size
+        const realmCount = new Set( Array.from( this.#routeConfigs.values() ).map( c => c.realm ) ).size
+        
+        this.#log( `📊 Summary: ${routeCount} route${routeCount !== 1 ? 's' : ''} configured across ${realmCount} realm${realmCount !== 1 ? 's' : ''}` )
+        this.#log( '' )
+        
+        // Display each route configuration
+        let routeIndex = 1
+        this.#routeConfigs.forEach( ( config, routePath ) => {
+            this.#displayRouteDetails( { config, routePath, index: routeIndex++ } )
+        } )
+        
+        this.#log( '═══════════════════════════════════════════════════════════════════════════════' )
+        this.#log( '' )
+    }
+
+
+    #displayRouteDetails( { config, routePath, index } ) {
+        // Get base URL from config or use defaults
+        const baseUrl = config.resourceUri ? 
+            config.resourceUri.replace( routePath, '' ).replace( /\/$/, '' ) : 
+            'http://localhost:3000'
+        
+        this.#log( `📍 Route ${index}: ${routePath}` )
+        this.#log( `   ├─ Realm:        ${config.realm}` )
+        this.#log( `   ├─ Provider:     ${config.providerUrl}` )
+        this.#log( `   ├─ Client ID:    ${config.clientId}` )
+        this.#log( `   ├─ Auth Flow:    ${config.authFlow}` )
+        
+        // Display required scopes
+        if( config.requiredScopes && config.requiredScopes.length > 0 ) {
+            const scopeList = config.requiredScopes.join( ', ' )
+            this.#log( `   ├─ Scopes:       ${scopeList}` )
+        }
+        
+        // Display required roles
+        if( config.requiredRoles && config.requiredRoles.length > 0 ) {
+            const roleList = config.requiredRoles.join( ', ' )
+            this.#log( `   ├─ Roles:        ${roleList}` )
+        }
+        
+        // Display security settings
+        const securityFlags = []
+        if( config.allowAnonymous ) securityFlags.push( '🟡 Anonymous allowed' )
+        if( config.authFlow === 'authorization-code' ) securityFlags.push( '🟢 PKCE required' )
+        
+        if( securityFlags.length > 0 ) {
+            this.#log( `   ├─ Security:     ${securityFlags.join( ', ' )}` )
+        }
+        
+        // Display endpoints with full URLs for clickability
+        this.#log( `   ├─ Endpoints:` )
+        this.#log( `   │  ├─ Login:     ${baseUrl}${routePath}/auth/login` )
+        this.#log( `   │  ├─ Callback:  ${baseUrl}${routePath}/callback` )
+        this.#log( `   │  ├─ Discovery: ${baseUrl}${routePath}/discovery` )
+        this.#log( `   │  └─ Metadata:  ${baseUrl}/.well-known/oauth-protected-resource${routePath}` )
+        this.#log( `   └─ Auth0 Setup:` )
+        this.#log( `      ├─ Application: ${config.clientId}` )
+        this.#log( `      ├─ Callback URLs: ${baseUrl}${routePath}/auth/callback` )
+        this.#log( `      ├─ Logout URLs:   ${baseUrl}${routePath}` )
+        this.#log( `      └─ Domain: ${config.providerUrl}` )
+        
+        if( index < this.#routeConfigs.size ) {
+            this.#log( '' )
+        }
+    }
+
+
+    #logRouteAccess( { routePath, method, status, user } ) {
+        if( this.#silent ) return
+        
+        const timestamp = new Date().toISOString()
+        const username = user?.preferred_username || user?.sub || 'anonymous'
+        const statusIcon = status === 'success' ? '✅' : status === 'denied' ? '❌' : '⚠️'
+        
+        this.#log( `${statusIcon} [${timestamp}] ${method} ${routePath} - User: ${username} - Status: ${status}` )
+    }
+
+
     // OAuth 2.1 Security Methods
 
 
@@ -689,9 +864,10 @@ class OAuthMiddleware {
         if( process.env.NODE_ENV === 'development' ) {
             const host = req.get( 'host' ) || ''
             if( host.includes( 'localhost' ) || host.includes( '127.0.0.1' ) ) {
-                if( !this.#silent ) {
-                    console.warn( '⚠️  HTTPS requirement bypassed for local development' )
-                }
+                Logger.warn( { 
+                    silent: this.#silent, 
+                    message: 'HTTPS requirement bypassed for local development' 
+                } )
                 return true
             }
         }
@@ -819,10 +995,22 @@ class OAuthMiddleware {
         return Array.from( this.#routeConfigs.values() ).map( config => ({
             route: config.routePath,
             realm: config.realm,
-            keycloakUrl: config.keycloakUrl,
+            providerUrl: config.providerUrl,
             resourceUri: config.resourceUri,
             requiredScopes: config.requiredScopes
         }) )
+    }
+
+
+    displayStatus() {
+        if( this.#silent ) return
+        
+        this.#displayRoutesSummary()
+    }
+
+
+    setSilent( { silent } ) {
+        this.#silent = silent
     }
 }
 

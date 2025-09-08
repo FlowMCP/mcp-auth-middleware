@@ -46,7 +46,7 @@
         "@jest/globals": "^29.7.0",
         "flowmcpServers": "github:flowmcp/flowMCP-servers#04ec25b8aa32363035afdae1da2e5a976c425f6f",
         "jest": "^29.7.0",
-        "schemaImporter": "github:flowmcp/flowMCP-schemas#3969e3b2ddae3d5d3d1c8bb8d4131b00d854af4d",
+        "schemaimporter": "github:flowmcp/flowMCP-schemas#3969e3b2ddae3d5d3d1c8bb8d4131b00d854af4d",
         "supertest": "^7.1.4"
     },
     "jest": {

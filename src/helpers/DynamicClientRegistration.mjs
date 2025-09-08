@@ -1,5 +1,7 @@
 import fetch from 'node-fetch'
 
+import { Logger } from './Logger.mjs'
+
 
 class DynamicClientRegistration {
     #config
@@ -86,9 +88,10 @@ class DynamicClientRegistration {
             }
         }
         
-        if( !this.#silent ) {
-            console.log( `Client registered successfully: ${registrationResponse.client_id}` )
-        }
+        Logger.success( { 
+            silent: this.#silent, 
+            message: `Client registered successfully: ${registrationResponse.client_id}` 
+        } )
 
         return {
             success: true,
@@ -136,9 +139,10 @@ class DynamicClientRegistration {
         } )
         
         if( response.status === 204 ) {
-            if( !this.#silent ) {
-                console.log( `Client ${clientId} deleted successfully` )
-            }
+            Logger.success( { 
+                silent: this.#silent, 
+                message: `Client ${clientId} deleted successfully` 
+            } )
             
             return { success: true }
         }

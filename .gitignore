@@ -45,3 +45,5 @@ logs
 dist/
 build/
 .trash
+
+.playwright-mcp

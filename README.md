@@ -19,7 +19,8 @@ import express from 'express'
 const middleware = await OAuthMiddleware.create({
     realmsByRoute: {
         '/api': {
-            keycloakUrl: 'http://localhost:8080',
+            providerName: 'auth0',
+            providerUrl: 'https://your-domain.auth0.com',
             realm: 'api-realm',
             clientId: 'api-client',
             clientSecret: 'secret',

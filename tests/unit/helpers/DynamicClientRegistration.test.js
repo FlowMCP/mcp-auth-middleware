@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals'
+import { TestUtils } from '../../helpers/utils.mjs'
 
 const mockFetch = jest.fn()
 
@@ -8,15 +9,25 @@ jest.unstable_mockModule( 'node-fetch', () => ({
 
 const { DynamicClientRegistration } = await import( '../../../src/helpers/DynamicClientRegistration.mjs' )
 
+// Test configuration using .auth.env.example
+const config = {
+    envPath: '../../../.auth.env.example',
+    providerUrl: 'https://your-first-auth0-domain.auth0.com',
+    realm: 'test-realm',
+    clientId: 'test-client-id',
+    clientSecret: 'test-client-secret',
+    silent: true
+}
+
 
 describe( 'DynamicClientRegistration', () => {
     let registration
     
     beforeEach( () => {
         registration = DynamicClientRegistration.create( {
-            keycloakUrl: 'http://localhost:8080',
-            realm: 'test-realm',
-            silent: true
+            keycloakUrl: config.providerUrl,
+            realm: config.realm,
+            silent: config.silent
         } )
         
         mockFetch.mockClear()
@@ -29,8 +40,8 @@ describe( 'DynamicClientRegistration', () => {
     describe( 'create', () => {
         test( 'creates DynamicClientRegistration instance with valid configuration', () => {
             const client = DynamicClientRegistration.create( {
-                keycloakUrl: 'http://localhost:8080',
-                realm: 'test-realm'
+                keycloakUrl: config.providerUrl,
+                realm: config.realm
             } )
 
             expect( client ).toBeDefined()
@@ -59,7 +70,7 @@ describe( 'DynamicClientRegistration', () => {
             } )
 
             expect( mockFetch ).toHaveBeenCalledWith(
-                'http://localhost:8080/realms/test-realm/clients-registrations/openid-connect',
+                `${config.providerUrl}/realms/${config.realm}/clients-registrations/openid-connect`,
                 expect.objectContaining( {
                     method: 'POST',
                     headers: {
@@ -167,7 +178,7 @@ describe( 'DynamicClientRegistration', () => {
             const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation()
             
             const verboseRegistration = DynamicClientRegistration.create( {
-                keycloakUrl: 'http://localhost:8080',
+                keycloakUrl: config.providerUrl,
                 realm: 'test-realm',
                 silent: false
             } )
@@ -185,7 +196,7 @@ describe( 'DynamicClientRegistration', () => {
                 clientName: 'Test Client'
             } )
 
-            expect( consoleSpy ).toHaveBeenCalledWith( 'Client registered successfully: new-client-log' )
+            expect( consoleSpy ).toHaveBeenCalledWith( '✅Client registered successfully: new-client-log' )
 
             consoleSpy.mockRestore()
         } )
@@ -211,7 +222,7 @@ describe( 'DynamicClientRegistration', () => {
             } )
 
             expect( mockFetch ).toHaveBeenCalledWith(
-                'http://localhost:8080/realms/test-realm/clients-registrations/openid-connect/client-123',
+                `${config.providerUrl}/realms/${config.realm}/clients-registrations/openid-connect/client-123`,
                 expect.objectContaining( {
                     method: 'PUT',
                     headers: {
@@ -283,7 +294,7 @@ describe( 'DynamicClientRegistration', () => {
             } )
 
             expect( mockFetch ).toHaveBeenCalledWith(
-                'http://localhost:8080/realms/test-realm/clients-registrations/openid-connect/client-123',
+                `${config.providerUrl}/realms/${config.realm}/clients-registrations/openid-connect/client-123`,
                 expect.objectContaining( {
                     method: 'DELETE',
                     headers: {
@@ -315,7 +326,7 @@ describe( 'DynamicClientRegistration', () => {
             const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation()
             
             const verboseRegistration = DynamicClientRegistration.create( {
-                keycloakUrl: 'http://localhost:8080',
+                keycloakUrl: config.providerUrl,
                 realm: 'test-realm',
                 silent: false
             } )
@@ -329,7 +340,7 @@ describe( 'DynamicClientRegistration', () => {
                 registrationAccessToken: 'access-token'
             } )
 
-            expect( consoleSpy ).toHaveBeenCalledWith( 'Client client-log deleted successfully' )
+            expect( consoleSpy ).toHaveBeenCalledWith( '✅Client client-log deleted successfully' )
 
             consoleSpy.mockRestore()
         } )

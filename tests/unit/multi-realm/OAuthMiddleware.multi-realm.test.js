@@ -1,13 +1,13 @@
 import { jest } from '@jest/globals'
 
 // Mock all helper classes for multi-realm testing
-const mockKeycloakClientForMultiRealm = jest.fn()
+const mockProviderFactoryForMultiRealm = jest.fn()
 const mockTokenValidatorForMultiRealm = jest.fn()
 const mockOAuthFlowHandlerForMultiRealm = jest.fn()
 
-jest.unstable_mockModule( '../../../src/helpers/KeycloakClient.mjs', () => ({
-    KeycloakClient: {
-        createForMultiRealm: mockKeycloakClientForMultiRealm
+jest.unstable_mockModule( '../../../src/providers/ProviderFactory.mjs', () => ({
+    ProviderFactory: {
+        createProvidersForRoutes: mockProviderFactoryForMultiRealm
     }
 }) )
 
@@ -25,15 +25,25 @@ jest.unstable_mockModule( '../../../src/helpers/OAuthFlowHandler.mjs', () => ({
 
 const { OAuthMiddleware } = await import( '../../../src/index.mjs' )
 
+// Test configuration using .auth.env.example
+const config = {
+    envPath: '../../../.auth.env.example',
+    providerUrl: 'https://your-first-auth0-domain.auth0.com',
+    realm: 'test-realm',
+    clientId: 'test-client-id',
+    clientSecret: 'test-client-secret',
+    silent: true
+}
 
 describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
-    let mockKeycloakClient
+    let mockProviders
     let mockTokenValidator
     let mockOAuthFlowHandler
     
     const testRealmsByRoute = {
         '/api': {
-            keycloakUrl: 'http://localhost:8080',
+            providerName: 'auth0',
+            providerUrl: config.providerUrl,
             realm: 'api-realm',
             clientId: 'api-client',
             clientSecret: 'api-secret',
@@ -41,7 +51,8 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
             resourceUri: 'http://localhost:3000/api'
         },
         '/admin': {
-            keycloakUrl: 'http://localhost:8080',
+            providerName: 'auth0',
+            providerUrl: config.providerUrl,
             realm: 'admin-realm',
             clientId: 'admin-client',
             clientSecret: 'admin-secret',
@@ -54,11 +65,16 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
         // Reset mocks
         jest.clearAllMocks()
         
-        // Mock helper instances
-        mockKeycloakClient = {
-            getJwksForRoute: jest.fn().mockResolvedValue( { jwksData: { keys: [] } } ),
-            validateTokenForRoute: jest.fn().mockResolvedValue( { isValid: true } ),
-            getAllRoutes: jest.fn().mockReturnValue( [ '/api', '/admin' ] )
+        // Mock provider instances  
+        mockProviders = {
+            '/api': {
+                generateEndpoints: jest.fn().mockReturnValue( { endpoints: { jwksUrl: 'https://api.auth0.com/.well-known/jwks.json' } } ),
+                getProviderName: jest.fn().mockReturnValue( 'auth0' )
+            },
+            '/admin': {
+                generateEndpoints: jest.fn().mockReturnValue( { endpoints: { jwksUrl: 'https://admin.auth0.com/.well-known/jwks.json' } } ),
+                getProviderName: jest.fn().mockReturnValue( 'auth0' )
+            }
         }
         
         mockTokenValidator = {
@@ -86,7 +102,7 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
         }
         
         // Setup mock returns
-        mockKeycloakClientForMultiRealm.mockResolvedValue( mockKeycloakClient )
+        mockProviderFactoryForMultiRealm.mockReturnValue( { providers: mockProviders } )
         mockTokenValidatorForMultiRealm.mockReturnValue( mockTokenValidator )
         mockOAuthFlowHandlerForMultiRealm.mockReturnValue( mockOAuthFlowHandler )
     } )
@@ -95,41 +111,42 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
     describe( 'Multi-Realm Creation and Configuration', () => {
         it( 'creates middleware with multi-realm configuration', async () => {
             const middleware = await OAuthMiddleware.create( {
-                realmsByRoute: testRealmsByRoute
+                realmsByRoute: testRealmsByRoute,
+                silent: true
             } )
 
             expect( middleware ).toBeDefined()
             
-            // Verify helper creation calls with normalized config (includes auto-generated URLs)
-            expect( mockKeycloakClientForMultiRealm ).toHaveBeenCalledWith( 
+            // Verify provider factory creation calls with normalized config
+            expect( mockProviderFactoryForMultiRealm ).toHaveBeenCalledWith( 
                 expect.objectContaining( {
                     realmsByRoute: expect.objectContaining( {
                         '/api': expect.objectContaining( {
-                            keycloakUrl: 'http://localhost:8080',
+                            providerUrl: config.providerUrl,
                             realm: 'api-realm',
                             clientId: 'api-client',
                             clientSecret: 'api-secret',
                             requiredScopes: [ 'api:read', 'api:write' ],
                             resourceUri: 'http://localhost:3000/api',
                             // Auto-generated fields
-                            authorizationUrl: expect.stringContaining( 'api-realm/protocol/openid-connect/auth' ),
-                            tokenUrl: expect.stringContaining( 'api-realm/protocol/openid-connect/token' ),
-                            jwksUrl: expect.stringContaining( 'api-realm/protocol/openid-connect/certs' )
+                            authorizationUrl: expect.stringContaining( '/authorize' ),
+                            tokenUrl: expect.stringContaining( '/oauth/token' ),
+                            jwksUrl: expect.stringContaining( '/.well-known/jwks.json' )
                         } )
                     } ),
-                    silent: false
+                    silent: true
                 } )
             )
             
             expect( mockTokenValidatorForMultiRealm ).toHaveBeenCalledWith( 
                 expect.objectContaining( {
-                    silent: false
+                    silent: true
                 } )
             )
             
             expect( mockOAuthFlowHandlerForMultiRealm ).toHaveBeenCalledWith( 
                 expect.objectContaining( {
-                    silent: false,
+                    silent: true,
                     baseRedirectUri: expect.any( String )
                 } )
             )
@@ -151,7 +168,7 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
             const invalidConfig = {
                 realmsByRoute: {
                     '/api': {
-                        keycloakUrl: 'http://localhost:8080',
+                        providerUrl: config.providerUrl,
                         // Missing required fields: realm, clientId, clientSecret
                     }
                 }
@@ -166,7 +183,7 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
             const invalidConfig = {
                 realmsByRoute: {
                     'api': { // Should start with '/'
-                        keycloakUrl: 'http://localhost:8080',
+                        providerUrl: config.providerUrl,
                         realm: 'test-realm',
                         clientId: 'test-client',
                         clientSecret: 'test-secret'
@@ -186,7 +203,8 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
 
         beforeEach( async () => {
             middleware = await OAuthMiddleware.create( {
-                realmsByRoute: testRealmsByRoute
+                realmsByRoute: testRealmsByRoute,
+                silent: true
             } )
         } )
 
@@ -214,12 +232,12 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
                 expect.objectContaining( {
                     route: '/api',
                     realm: 'api-realm',
-                    keycloakUrl: 'http://localhost:8080'
+                    providerUrl: config.providerUrl
                 } ),
                 expect.objectContaining( {
                     route: '/admin', 
                     realm: 'admin-realm',
-                    keycloakUrl: 'http://localhost:8080'
+                    providerUrl: config.providerUrl
                 } )
             ] ) )
         } )
@@ -228,13 +246,13 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
             const config = middleware.getRouteConfig( '/api' )
             
             expect( config.authorizationUrl ).toBe( 
-                'http://localhost:8080/realms/api-realm/protocol/openid-connect/auth' 
+                'https://your-first-auth0-domain.auth0.com/authorize' 
             )
             expect( config.tokenUrl ).toBe( 
-                'http://localhost:8080/realms/api-realm/protocol/openid-connect/token' 
+                'https://your-first-auth0-domain.auth0.com/oauth/token' 
             )
             expect( config.jwksUrl ).toBe( 
-                'http://localhost:8080/realms/api-realm/protocol/openid-connect/certs' 
+                'https://your-first-auth0-domain.auth0.com/.well-known/jwks.json' 
             )
         } )
     } )
@@ -246,7 +264,8 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
 
         beforeEach( async () => {
             middleware = await OAuthMiddleware.create( {
-                realmsByRoute: testRealmsByRoute
+                realmsByRoute: testRealmsByRoute,
+                silent: true
             } )
             router = middleware.router()
         } )
@@ -269,7 +288,8 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
 
         beforeEach( async () => {
             middleware = await OAuthMiddleware.create( {
-                realmsByRoute: testRealmsByRoute
+                realmsByRoute: testRealmsByRoute,
+                silent: true
             } )
         } )
 
@@ -280,7 +300,7 @@ describe( 'OAuthMiddleware - Multi-Realm Architecture', () => {
                 const config = middleware.getRouteConfig( route )
                 expect( config ).toHaveProperty( 'requiredScopes' )
                 expect( config ).toHaveProperty( 'resourceUri' )
-                expect( config.keycloakUrl ).toMatch( /^https?:\/\// )
+                expect( config.providerUrl ).toMatch( /^https?:\/\// )
             } )
         } )
     } )

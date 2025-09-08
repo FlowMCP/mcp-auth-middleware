@@ -11,62 +11,82 @@ import path from 'path'
 class TestUtils {
     
     /**
-     * Lädt Server-Parameter aus einer .env-Datei
-     * 
-     * @param {Object} params - Parameter-Objekt
-     * @param {string} params.path - Pfad zur .env-Datei
-     * @param {string[]} params.requiredServerParams - Array der erforderlichen Parameter
-     * @returns {Object} Objekt mit geladenen Parametern
+     * @deprecated Use getEnvParams() instead
+     * Legacy method for backward compatibility
      */
     static getServerParams( { path, requiredServerParams } ) {
         const selection = requiredServerParams
             .map( ( serverParam ) => [ serverParam, serverParam ] )
+        
+        return TestUtils.getEnvParams( { envPath: path, selection } )
+    }
 
+
+    /**
+     * Lädt Umgebungsparameter aus einer .env-Datei mit flexibler Selection
+     * 
+     * @param {Object} params - Parameter-Objekt
+     * @param {string} params.envPath - Pfad zur .env-Datei
+     * @param {Array} params.selection - Array von [outputKey, envKey] Zuordnungen
+     * @returns {Object} Objekt mit geladenen Parametern
+     */
+    static getEnvParams( { envPath, selection } ) {
         let result = {}
         
         try {
             result = fs
-                .readFileSync( path, 'utf-8' )
+                .readFileSync( envPath, 'utf-8' )
                 .split( '\n' )
                 .map( ( line ) => line.split( '=' ) )
                 .reduce( ( acc, [ k, v ] ) => {
-                    const find = selection.find( ( [ _, value ] ) => value === k )
+                    const find = selection.find( ( [ _, envKey ] ) => envKey === k )
                     if( find ) { 
                         acc[ find[0] ] = v?.trim() 
                     }
                     return acc
                 }, {} )
         } catch( error ) {
-            console.log( `⚠️  Fehler beim Laden der .env-Datei: ${path}` )
-            console.log( `   ${error.message}` )
             return {}
         }
 
         // Prüfe auf fehlende Parameter
         const missingParams = []
-        selection.forEach( ( row ) => {
-            const [ key, _ ] = row
-            if( !result[ key ] ) {
-                missingParams.push( key )
-                console.log( `Missing ${key} in .env file` )
+        selection.forEach( ( [ outputKey, envKey ] ) => {
+            if( !result[ outputKey ] ) {
+                missingParams.push( outputKey )
             }
         } )
-
-        if( missingParams.length > 0 ) {
-            console.log( `⚠️  ${missingParams.length} Parameter fehlen in ${path}` )
-        }
 
         return result
     }
 
 
     /**
-     * Lädt OAuth-spezifische Parameter aus der Standard .env-Datei
-     * 
-     * @returns {Object} OAuth-Konfigurationsparameter
+     * @deprecated Use getEnvParams() with selection array instead
+     * Legacy method for Auth0 parameters
+     */
+    static getAuth0Params() {
+        const envPath = path.resolve( process.cwd(), '../.auth.env' )
+        
+        const requiredAuth0Params = [
+            'AUTH0_DOMAIN',
+            'AUTH0_CLIENT_ID',
+            'AUTH0_CLIENT_SECRET'
+        ]
+
+        return TestUtils.getServerParams( {
+            path: envPath,
+            requiredServerParams: requiredAuth0Params
+        } )
+    }
+
+
+    /**
+     * @deprecated Use getEnvParams() with selection array instead
+     * Legacy method for OAuth parameters
      */
     static getOAuthParams() {
-        const envPath = path.resolve( process.cwd(), '../oauth-flowmcp.env' )
+        const envPath = path.resolve( process.cwd(), '../.auth.env' )
         
         const requiredOAuthParams = [
             'KEYCLOAK_URL',
@@ -86,12 +106,11 @@ class TestUtils {
 
 
     /**
-     * Lädt Test-spezifische Parameter
-     * 
-     * @returns {Object} Test-Konfigurationsparameter  
+     * @deprecated Use getEnvParams() with selection array instead
+     * Legacy method for test parameters
      */
     static getTestParams() {
-        const envPath = path.resolve( process.cwd(), '../oauth-flowmcp.env' )
+        const envPath = path.resolve( process.cwd(), '../.auth.env' )
         
         const requiredTestParams = [
             'TEST_SERVER_PORT',
@@ -140,19 +159,6 @@ class TestUtils {
             silent
         }
 
-        if( !silent ) {
-            console.log( '⚙️  OAuth Test-Konfiguration geladen:' )
-            console.log( `   Keycloak URL: ${config.keycloakUrl}` )
-            console.log( `   Realm: ${config.realm}` )
-            console.log( `   Client ID: ${config.clientId}` )
-            console.log( `   Test Server Port: ${config.testServerPort}` )
-            console.log( `   Redirect URI: ${config.redirectUri}` )
-            
-            // Warnungen für fehlende Parameter
-            if( !config.clientSecret ) {
-                console.log( '⚠️  KEYCLOAK_CLIENT_SECRET nicht gesetzt' )
-            }
-        }
 
         return config
     }
@@ -222,7 +228,7 @@ class TestUtils {
             success: '✅'
         }[ level ] || 'ℹ️ '
         
-        console.log( `${prefix} ${message}` )
+        // Logging disabled in tests
     }
 
 
