@@ -10,15 +10,11 @@
     "scripts": {
         "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
         "test:unit": "NODE_OPTIONS='--experimental-vm-modules' jest tests/unit",
-        "test:manual": "NODE_OPTIONS='--experimental-vm-modules' jest tests/manual",
         "test:integration": "NODE_OPTIONS='--experimental-vm-modules' jest tests/integration",
         "test:performance": "NODE_OPTIONS='--experimental-vm-modules' jest tests/performance",
-        "test:all": "NODE_OPTIONS='--experimental-vm-modules' jest tests/",
         "test:coverage:src": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage --collectCoverageFrom='src/**/*.mjs'",
         "test:file": "NODE_OPTIONS='--experimental-vm-modules' jest",
-        "start:oauth-server": "node tests/manual/0-local-server.mjs",
-        "start:x402-server": "node tests/manual/1-x402-style-server.mjs",
-        "start:multi-realm-demo": "node tests/manual/multi-realm-demo.mjs"
+        "start:demo": "node tests/manual/1-reference-implementation.mjs"
     },
     "keywords": [
         "oauth",
@@ -54,7 +50,6 @@
         "transform": {},
         "testMatch": [
             "**/tests/unit/**/*.test.js",
-            "**/tests/manual/**/*.test.js",
             "**/tests/integration/**/*.test.js",
             "**/tests/performance/**/*.test.js"
         ]
