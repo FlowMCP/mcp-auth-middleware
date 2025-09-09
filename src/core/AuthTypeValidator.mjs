@@ -47,6 +47,10 @@ class AuthTypeValidator {
             return AuthTypeValidator.#validateOAuth21Auth0Schema( { config } )
         }
 
+        if( authType === 'staticBearer' ) {
+            return AuthTypeValidator.#validateStaticBearerSchema( { config } )
+        }
+
         struct['messages'].push( `No schema validator found for authType: ${authType}` )
         return struct
     }
@@ -106,6 +110,50 @@ class AuthTypeValidator {
                     struct['messages'].push( `config.${key}: Must be a ${type} when provided` )
                 }
             } )
+
+        if( struct['messages'].length > 0 ) {
+            return struct
+        }
+
+        struct['status'] = true
+        return struct
+    }
+
+
+    static #validateStaticBearerSchema( { config } ) {
+        const struct = { status: false, messages: [] }
+        
+        const requiredFields = [
+            [ 'token', 'string' ]
+        ]
+
+        const missingFields = []
+        const typeErrors = []
+
+        requiredFields
+            .forEach( ( [ key, type ] ) => {
+                const value = config[ key ]
+                if( value === undefined || value === null ) {
+                    missingFields.push( key )
+                } else if( typeof value !== type ) {
+                    typeErrors.push( `config.${key}: Must be a ${type}` )
+                }
+            } )
+
+        if( missingFields.length > 0 ) {
+            struct['messages'].push( `StaticBearer configuration missing required fields: ${missingFields.join( ', ' )}` )
+        }
+
+        struct['messages'].push( ...typeErrors )
+
+        if( config.token && typeof config.token === 'string' ) {
+            if( config.token.trim().toLowerCase().startsWith( 'bearer' ) ) {
+                struct['messages'].push( `StaticBearer token must not start with "Bearer" prefix` )
+            }
+            if( config.token.trim().length < 8 ) {
+                struct['messages'].push( `StaticBearer token must be at least 8 characters long` )
+            }
+        }
 
         if( struct['messages'].length > 0 ) {
             return struct

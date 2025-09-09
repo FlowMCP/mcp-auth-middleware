@@ -1,8 +1,5 @@
 import { SchemaImporter } from 'schemaImporter'
-import { DeployAdvanced } from 'flowmcpServers'
-import { McpAuthMiddleware } from '../../src/index.mjs'
 import { TestUtils } from '../helpers/utils.mjs'
-
 
 const envParams = TestUtils.getEnvParams( {
     'envPath': './../../../.auth.env',
@@ -24,14 +21,12 @@ const {
     secondRouteAuth0ClientSecret 
 } = envParams
 
-console.log( '>>>>', envParams)
-
 const config = {
     'silent': false, // Set to true to disable OAuth route output  
     'envPath': './../../.env',
     'rootUrl': 'http://localhost', // optional
     'port': 3000, // optional
-    'routes': [
+    'routeConfigs': [
         {
             'routePath': '/first-route',
             'name': 'First Auth0 Route',
@@ -58,8 +53,9 @@ const config = {
                 'realm': 'first-route-realm', // Auth0 pseudo-realm für erste Route
                 'clientId': firstRouteAuth0ClientId || 'your-first-route-client-id',
                 'clientSecret': firstRouteAuth0ClientSecret || 'your-first-route-client-secret',
-                'requiredScopes': ['openid', 'profile', 'email']
-                // resourceUri: `${rootUrl}:${port}/eerc20` <--- muss später abgeleitet werden von rootUrl und port
+                'requiredScopes': ['openid', 'profile', 'email'],
+                'resourceUri': null,
+                'forceHttps': false
             }
         },
         {
@@ -88,57 +84,26 @@ const config = {
                 'realm': 'second-route-realm', // Auth0 pseudo-realm für zweite Route
                 'clientId': secondRouteAuth0ClientId || 'your-second-route-client-id',
                 'clientSecret': secondRouteAuth0ClientSecret || 'your-second-route-client-secret',
-                'requiredScopes': ['openid', 'profile', 'email']
-                // resourceUri: `${rootUrl}:${port}/eerc20` <--- muss später abgeleitet werden von rootUrl und port
+                'requiredScopes': ['openid', 'profile', 'email'],
+                'resourceUri': null,
+                'forceHttps': false
             }
         }
     ]
 }
 
-const { routes: _routes, rootUrl, port, silent } = config
-
-const routes = _routes
-    .reduce( ( acc, route ) => {
-        const { routePath, auth, protocol } = route
-        if( !auth.enabled ) { return acc }
-        const { providerName, providerUrl, realm, clientId, clientSecret, requiredScopes } = auth
-        const resourceUri = `${rootUrl}:${port}${routePath}`  // Base URL without protocol suffix
-        const forceHttps = false  // Set to true for production environments
-        acc[ routePath ] = { providerName, providerUrl, realm, clientId, clientSecret, requiredScopes, forceHttps, resourceUri }
-        return acc
-    }, {} )
-
-const oauthMiddleware = await McpAuthMiddleware
-    .create( { routes, silent } )
-
-
-const modifiedRoutes = _routes
-    .map( ( route ) => { return { ...route, bearerToken: null } } )
-
-const objectOfSchemaArrays = await modifiedRoutes
-    .reduce( async ( promiseAcc, route ) => {
-        const acc = await promiseAcc
-        const { routePath, schemas } = route
-        const { arrayOfSchemas } = await schemas()
-        acc[ routePath ] = arrayOfSchemas
-        return acc
-    }, Promise.resolve( {} ) )
-
-const arrayOfRoutes = modifiedRoutes
+config['routeConfigs'] = config['routeConfigs']
     .map( ( route ) => {
-        const { routePath, protocol = 'sse', bearerToken } = route
-        const schemasForRoute = objectOfSchemaArrays[ routePath ] || []
-        if( schemasForRoute.length === 0 && !silent ) {
-            console.warn( `⚠️  No schemas found for route ${routePath}` )
+        const { auth: { authType } } = route
+        if( authType === 'oauth21_auth0' ) {
+
         }
-        return { routePath, protocol, bearerToken }
+
+
     } )
 
-const { app, mcps, events, argv, server } = DeployAdvanced
-    .init( { silent } )
 
-// Register OAuth middleware on the Express app
-app.use( oauthMiddleware.router() )
 
-DeployAdvanced
-    .start( { arrayOfRoutes, objectOfSchemaArrays, envObject: [], rootUrl, port } )
+
+
+export { config }

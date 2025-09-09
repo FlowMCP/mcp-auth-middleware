@@ -57,6 +57,19 @@ class AuthTypeRegistry {
             optionalFields: [ 'redirectUri', 'responseType', 'grantType', 'tokenEndpoint', 'userInfoEndpoint' ]
         } )
 
+        this.#authTypes.set( 'staticBearer', {
+            name: 'Static Bearer Token',
+            description: 'Simple static bearer token authentication',
+            schemaPath: '../authTypes/staticBearer/StaticBearerSchema.mjs',
+            providerPath: '../authTypes/staticBearer/StaticBearerProvider.mjs',
+            tokenValidatorPath: '../authTypes/staticBearer/StaticBearerTokenValidator.mjs',
+            flowHandlerPath: null,
+            supportedFlows: [],
+            defaultScopes: '',
+            requiredFields: [ 'token' ],
+            optionalFields: []
+        } )
+
         Logger.info( { 
             silent: this.#silent, 
             message: `AuthTypeRegistry initialized with ${this.#authTypes.size} auth types` 

@@ -88,11 +88,20 @@ class McpAuthMiddleware {
             baseRedirectUri = `${url.protocol}//${url.host}`
         }
         
-        const oauthFlowHandler = OAuthFlowHandler.createForMultiRealm( { 
-            routes: validatedRoutes,
-            baseRedirectUri,
-            silent: this.#silent
-        } )
+        // Filter routes to only include OAuth-based AuthTypes for FlowHandler
+        const oauthRoutes = Object.fromEntries(
+            Object.entries( validatedRoutes )
+                .filter( ( [ route, config ] ) => config.authType && config.authType.includes( 'oauth' ) )
+        )
+
+        let oauthFlowHandler = null
+        if( Object.keys( oauthRoutes ).length > 0 ) {
+            oauthFlowHandler = OAuthFlowHandler.createForMultiRealm( { 
+                routes: oauthRoutes,
+                baseRedirectUri,
+                silent: this.#silent
+            } )
+        }
 
         // Store shared helper instances (AuthType-based system)
         this.#routeClients.set( 'shared', {
@@ -130,6 +139,7 @@ class McpAuthMiddleware {
             finalConfig = {
                 ...config,
                 routePath,
+                realm: this.#deriveRealmName( { routePath } ),
                 authFlow: config.authFlow || 'authorization-code',
                 requiredRoles: config.requiredRoles || [],
                 allowAnonymous: config.allowAnonymous || false
@@ -504,13 +514,24 @@ class McpAuthMiddleware {
         
         const token = bearerValidation.token
         
-        // Validate token against route's realm with audience binding (RFC 8707)
-        const resourceUri = `${req.protocol}://${req.get( 'host' )}${routePath}`
-        const validationResult = await sharedHelpers.tokenValidator.validateWithAudienceBinding( { 
-            token, 
-            route: routePath, 
-            resourceUri 
-        } )
+        // Get the AuthType-specific TokenValidator for this route
+        const authHandler = sharedHelpers.authHandlers[routePath]
+        let validationResult
+        
+        // Backwards-compatibility: Try AuthType-specific validator first, fallback to legacy
+        if( authHandler && authHandler.tokenValidator && typeof authHandler.tokenValidator.validate === 'function' ) {
+            // New AuthType-specific validation
+            validationResult = await authHandler.tokenValidator.validate( { token } )
+        } else if( sharedHelpers.tokenValidator && typeof sharedHelpers.tokenValidator.validateForRoute === 'function' ) {
+            // Legacy validation fallback
+            validationResult = await sharedHelpers.tokenValidator.validateForRoute( { token, routePath } )
+        } else {
+            Logger.error( { 
+                silent: this.#silent, 
+                message: `No token validator found for route: ${routePath}` 
+            } )
+            return this.#sendUnauthorized( { res, routePath, reason: 'configuration_error' } )
+        }
         
         if( !validationResult.isValid ) {
             this.#logRouteAccess( { 
@@ -522,15 +543,17 @@ class McpAuthMiddleware {
             return this.#sendUnauthorized( { res, routePath, reason: validationResult.error || 'invalid_token' } )
         }
         
-        // Check audience binding result
-        if( validationResult.audienceBinding && !validationResult.audienceBinding.isValidAudience ) {
-            this.#logRouteAccess( { 
-                routePath, 
-                method: req.method, 
-                status: 'denied', 
-                user: validationResult.decoded 
-            } )
-            return this.#sendForbidden( { res, routePath, reason: 'invalid_audience' } )
+        // Optional: Check audience binding for OAuth-based AuthTypes
+        if( authHandler && authHandler.authType && authHandler.authType.includes( 'oauth' ) && validationResult.audienceBinding ) {
+            if( !validationResult.audienceBinding.isValidAudience ) {
+                this.#logRouteAccess( { 
+                    routePath, 
+                    method: req.method, 
+                    status: 'denied', 
+                    user: validationResult.decoded 
+                } )
+                return this.#sendForbidden( { res, routePath, reason: 'invalid_audience' } )
+            }
         }
         
         // Check route-specific roles and scopes
@@ -577,7 +600,7 @@ class McpAuthMiddleware {
 
     #checkAuthorization( { decoded, config } ) {
         // Check required roles
-        if( config.requiredRoles.length > 0 ) {
+        if( config.requiredRoles && config.requiredRoles.length > 0 ) {
             const userRoles = decoded.realm_access?.roles || []
             const hasRequiredRole = config.requiredRoles.some( 
                 role => userRoles.includes( role ) 
@@ -592,7 +615,7 @@ class McpAuthMiddleware {
         }
         
         // Check required scopes
-        if( config.requiredScopes.length > 0 ) {
+        if( config.requiredScopes && config.requiredScopes.length > 0 ) {
             const userScopes = decoded.scope ? decoded.scope.split( ' ' ) : []
             const hasRequiredScope = config.requiredScopes.some( 
                 scope => userScopes.includes( scope ) 
@@ -617,8 +640,21 @@ class McpAuthMiddleware {
         // RFC 9728 compliant 401 response
         res.set( 'WWW-Authenticate', `Bearer realm="${routePath}", error="invalid_token", error_description="${reason}", resource_metadata="${prmUrl}"` )
         
+        // Map internal error codes to user-friendly messages
+        let message = reason
+        if( reason === 'missing_authorization_header' ) {
+            message = 'Authorization header required'
+        } else if( reason === 'invalid_token_format' || reason === 'empty_bearer_token' ) {
+            message = 'Bearer token required'  
+        } else if( reason === 'Invalid bearer token' ) {
+            message = 'Invalid bearer token'
+        } else if( reason.includes('OAuth 2.1 requires Bearer token format') ) {
+            message = 'Bearer token required'
+        }
+
         res.status( 401 ).json( {
-            error: 'unauthorized',
+            error: 'Unauthorized',
+            message: message,
             error_description: reason,
             route: routePath,
             protected_resource_metadata: prmUrl,
@@ -804,8 +840,8 @@ class McpAuthMiddleware {
             }
         }
         
-        // OAuth 2.1: Bearer tokens only, no URL parameters
-        if( !authHeader.startsWith( 'Bearer ' ) ) {
+        // OAuth 2.1: Bearer tokens only, no URL parameters (case-insensitive)
+        if( !authHeader.toLowerCase().startsWith( 'bearer ' ) ) {
             return {
                 isValid: false,
                 error: 'invalid_token_format',
@@ -822,7 +858,9 @@ class McpAuthMiddleware {
             }
         }
         
-        const token = authHeader.substring( 7 ) // Remove 'Bearer '
+        // Extract token, handling case-insensitive Bearer prefix
+        const bearerMatch = authHeader.match( /^bearer\s+(.*)/i )
+        const token = bearerMatch ? bearerMatch[1] : ''
         
         if( !token ) {
             return {

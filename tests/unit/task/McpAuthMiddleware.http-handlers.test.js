@@ -114,7 +114,7 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
                 clientSecret: 'test-client-secret',
                 scope: 'openid profile email',
                 audience: 'https://api.example.com',
-                realm: 'test-realm',
+                realm: 'api-realm',
                 requiredScopes: ['openid', 'profile'],
                 forceHttps: false  // Disable HTTPS requirement for tests
             }
@@ -198,7 +198,7 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
             expect(response.body).toEqual({
                 message: 'Authentication successful',
                 access_token: 'test-token',
-                realm: 'test-realm',
+                realm: 'api-realm',
                 route: '/api',
                 usage: 'Use Bearer token for /api endpoints'
             })
@@ -219,7 +219,7 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
             expect(response.body).toEqual({
                 message: 'Authentication successful',
                 access_token: 'test-token',
-                realm: 'test-realm',
+                realm: 'api-realm',
                 route: '/api',
                 usage: 'Use Bearer token for /api endpoints'
             })
@@ -290,7 +290,7 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
             
             expect(response.body.resource).toContain('/api')
             expect(response.body.route_info.path).toBe('/api')
-            expect(response.body.route_info.realm).toBe('test-realm')
+            expect(response.body.route_info.realm).toBe('api-realm')
         })
     })
 
@@ -303,7 +303,7 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
             expect(response.body).toHaveProperty('route', '/api')
             expect(response.body).toHaveProperty('endpoints')
             expect(response.body).toHaveProperty('authFlow', 'authorization-code')
-            expect(response.body).toHaveProperty('realm', 'test-realm')
+            expect(response.body).toHaveProperty('realm', 'api-realm')
             expect(response.body).toHaveProperty('scopes')
             expect(response.body).toHaveProperty('security')
             
@@ -374,7 +374,8 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
                 .expect(401)
 
             expect(response.body).toEqual({
-                error: 'unauthorized',
+                error: 'Unauthorized',
+                message: 'Authorization header required',
                 error_description: 'missing_authorization_header',
                 login_url: expect.any(String),
                 protected_resource_metadata: expect.any(String),
@@ -405,7 +406,7 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
                     clientSecret: 'test-client-secret',
                     scope: 'openid profile email',
                     audience: 'https://api.example.com',
-                    realm: 'test-realm',
+                    realm: 'api-realm',
                     requiredScopes: ['openid', 'profile'],
                     forceHttps: false
                 }
@@ -428,7 +429,8 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
                 .expect(401)
 
             expect(response.body).toEqual({
-                error: 'unauthorized',
+                error: 'Unauthorized',
+                message: 'Token expired',
                 error_description: 'Token expired',
                 login_url: expect.any(String),
                 protected_resource_metadata: expect.any(String),

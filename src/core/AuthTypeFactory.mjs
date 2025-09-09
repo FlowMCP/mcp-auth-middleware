@@ -26,6 +26,10 @@ class AuthTypeFactory {
             return await AuthTypeFactory.#createOAuth21Auth0Handler( { config, handlerConfig, silent } )
         }
 
+        if( authType === 'staticBearer' ) {
+            return await AuthTypeFactory.#createStaticBearerHandler( { config, handlerConfig, silent } )
+        }
+
         throw new Error( `No factory implementation found for authType: ${authType}` )
     }
 
@@ -51,6 +55,29 @@ class AuthTypeFactory {
             return authHandler
         } catch( error ) {
             throw new Error( `Failed to create OAuth21Auth0 handler: ${error.message}` )
+        }
+    }
+
+
+    static async #createStaticBearerHandler( { config, handlerConfig, silent } ) {
+        try {
+            const { StaticBearerProvider } = await import( handlerConfig.providerPath )
+            const { StaticBearerTokenValidator } = await import( handlerConfig.tokenValidatorPath )
+
+            const provider = new StaticBearerProvider( { config, silent } )
+            const tokenValidator = new StaticBearerTokenValidator( { config, silent } )
+
+            const authHandler = {
+                authType: 'staticBearer',
+                provider,
+                tokenValidator,
+                flowHandler: null,
+                config
+            }
+
+            return authHandler
+        } catch( error ) {
+            throw new Error( `Failed to create StaticBearer handler: ${error.message}` )
         }
     }
 }
