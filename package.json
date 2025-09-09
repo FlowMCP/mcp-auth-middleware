@@ -35,8 +35,7 @@
     "dependencies": {
         "express": "^4.19.2",
         "jsonwebtoken": "^9.0.2",
-        "jwks-client": "^2.0.5",
-        "node-fetch": "^3.3.2"
+        "jwks-client": "^2.0.5"
     },
     "devDependencies": {
         "@jest/globals": "^29.7.0",

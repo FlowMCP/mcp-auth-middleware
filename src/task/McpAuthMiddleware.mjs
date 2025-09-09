@@ -1,6 +1,6 @@
 import express from 'express'
 import jwt from 'jsonwebtoken'
-import fetch from 'node-fetch'
+// Using native fetch (Node.js 22+)
 
 import { AuthTypeFactory } from '../core/AuthTypeFactory.mjs'
 import { DynamicClientRegistration } from '../helpers/DynamicClientRegistration.mjs'

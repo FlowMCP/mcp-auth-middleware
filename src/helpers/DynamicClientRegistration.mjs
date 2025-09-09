@@ -1,4 +1,4 @@
-import fetch from 'node-fetch'
+// Using native fetch (Node.js 22+)
 
 import { Logger } from './Logger.mjs'
 

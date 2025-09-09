@@ -2,9 +2,8 @@ import { jest } from '@jest/globals'
 
 // Mock fetch before importing any modules that use it
 const mockFetch = jest.fn()
-jest.unstable_mockModule('node-fetch', () => ({
-    default: mockFetch
-}))
+// Mock native fetch (Node.js 22+)
+global.fetch = mockFetch
 
 // Import modules after mocking
 const { OAuth21Auth0FlowHandler } = await import('../../../../src/authTypes/oauth21_auth0/OAuth21Auth0FlowHandler.mjs')

@@ -3,9 +3,8 @@ import { TestUtils } from '../../helpers/utils.mjs'
 
 const mockFetch = jest.fn()
 
-jest.unstable_mockModule( 'node-fetch', () => ({
-    default: mockFetch
-}) )
+// Mock native fetch (Node.js 22+)
+global.fetch = mockFetch
 
 const { DynamicClientRegistration } = await import( '../../../src/helpers/DynamicClientRegistration.mjs' )
 

@@ -9,10 +9,9 @@ jest.unstable_mockModule( '../../../src/helpers/PKCEGenerator.mjs', () => ({
     }
 }) )
 
-// Mock node-fetch
-jest.unstable_mockModule( 'node-fetch', () => ({
-    default: jest.fn()
-}) )
+// Mock native fetch (Node.js 22+)  
+const mockFetch = jest.fn()
+global.fetch = mockFetch
 
 // Mock URLSearchParams to behave properly in Jest
 global.URLSearchParams = class MockURLSearchParams {
@@ -55,7 +54,7 @@ global.URLSearchParams = class MockURLSearchParams {
 }
 
 const { OAuthFlowHandler } = await import( '../../../src/helpers/OAuthFlowHandler.mjs' )
-const fetch = (await import( 'node-fetch' )).default
+// Using mockFetch from global.fetch (native fetch mock)
 
 // Test configuration using .auth.env.example
 const config = {
@@ -411,7 +410,7 @@ describe( 'OAuthFlowHandler', () => {
                 state: authState
             } )
             
-            const fetchCall = fetch.mock.calls[0]
+            const fetchCall = mockFetch.mock.calls[0]
             const requestBody = fetchCall[1].body
             
             expect( requestBody ).toContain( 'code_verifier=test-code-verifier-123' )
@@ -498,7 +497,7 @@ describe( 'OAuthFlowHandler', () => {
                 route: '/api/v1'
             } )
             
-            const fetchCall = fetch.mock.calls[0]
+            const fetchCall = mockFetch.mock.calls[0]
             const requestBody = fetchCall[1].body
             
             expect( requestBody ).toContain( 'grant_type=client_credentials' )
@@ -519,7 +518,7 @@ describe( 'OAuthFlowHandler', () => {
                 scopes: customScopes
             } )
             
-            const fetchCall = fetch.mock.calls[0]
+            const fetchCall = mockFetch.mock.calls[0]
             const requestBody = fetchCall[1].body
             
             expect( requestBody ).toContain( 'scope=read%3Adata+write%3Adata' )
