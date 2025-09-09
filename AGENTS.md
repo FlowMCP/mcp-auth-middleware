@@ -24,7 +24,7 @@ This guide provides AI agents with essential information for working with the OA
 - All imports MUST go through this file only
 
 ### Core Implementation
-- **[src/task/OAuthMiddleware.mjs](./src/task/OAuthMiddleware.mjs)** - Main middleware implementation
+- **[src/task/McpAuthMiddleware.mjs](./src/task/McpAuthMiddleware.mjs)** - Main middleware implementation
 - **[src/task/Validation.mjs](./src/task/Validation.mjs)** - Input validation logic
 
 ### Helper Modules
@@ -56,7 +56,7 @@ This guide provides AI agents with essential information for working with the OA
 src/
 ├── index.mjs                 # Public API (ONLY entry point)
 ├── task/
-│   ├── OAuthMiddleware.mjs   # Core implementation
+│   ├── McpAuthMiddleware.mjs   # Core implementation
 │   └── Validation.mjs        # Input validation
 └── helpers/
     ├── KeycloakClient.mjs
@@ -69,8 +69,8 @@ src/
 
 ### Configuration Pattern
 ```javascript
-const middleware = await OAuthMiddleware.create({
-    realmsByRoute: {
+const middleware = await McpAuthMiddleware.create({
+    routes: {
         '/route': {
             providerName: 'auth0',     // Provider identifier
             providerUrl: 'string',     // Provider base URL
@@ -78,6 +78,7 @@ const middleware = await OAuthMiddleware.create({
             clientId: 'string',
             clientSecret: 'string',
             requiredScopes: ['array'],
+            forceHttps: true,          // Route-specific HTTPS enforcement
             resourceUri: 'string'
         }
     }
@@ -85,7 +86,7 @@ const middleware = await OAuthMiddleware.create({
 ```
 
 ### Public API Methods
-- `.create({ realmsByRoute, silent? })` - Create middleware instance
+- `.create({ routes, silent? })` - Create middleware instance
 - `.router()` - Get Express router with OAuth endpoints
 - `.getRoutes()` - Get configured routes array
 - `.getRealms()` - Get realm configurations
@@ -118,7 +119,7 @@ npm run test:coverage:src   # Run with coverage report
 
 ### ❌ Single-Realm Configuration
 - **Problem**: Using old single-realm API pattern
-- **Solution**: Wrap in `realmsByRoute` object
+- **Solution**: Wrap in `routes` object
 
 ### ❌ Missing Validation
 - **Problem**: Calling implementation methods directly

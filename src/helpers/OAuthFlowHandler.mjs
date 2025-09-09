@@ -18,11 +18,11 @@ class OAuthFlowHandler {
     }
 
 
-    static createForMultiRealm( { realmsByRoute, baseRedirectUri, silent = false } ) {
+    static createForMultiRealm( { routes, baseRedirectUri, silent = false } ) {
         const handler = new OAuthFlowHandler( { silent } )
         
         // Initialize all route configurations
-        Object.entries( realmsByRoute ).forEach( ( [ route, config ] ) => {
+        Object.entries( routes ).forEach( ( [ route, config ] ) => {
             const normalizedConfig = {
                 providerUrl: config.providerUrl,
                 realm: config.realm,
@@ -31,6 +31,7 @@ class OAuthFlowHandler {
                 redirectUri: `${baseRedirectUri}${route}/callback`,
                 authFlow: config.authFlow || 'authorization_code',
                 requiredScopes: config.requiredScopes || [],
+                forceHttps: config.forceHttps,
                 resourceUri: config.resourceUri || '',
                 authorizationEndpoint: config.authorizationUrl || (config.providerUrl.includes('auth0.com') ? 
                     `${config.providerUrl}/authorize` : 
@@ -47,6 +48,42 @@ class OAuthFlowHandler {
         } )
 
         return handler
+    }
+
+
+    getDiscoveryData() {
+        // Get first route configuration to derive discovery metadata
+        const firstRoute = Array.from( this.#routeConfigs.values() )[0]
+        
+        if( !firstRoute ) {
+            throw new Error( 'No route configurations available for discovery data' )
+        }
+        
+        // Build OAuth Authorization Server metadata (RFC 8414)
+        const discoveryData = {
+            issuer: firstRoute.providerUrl,
+            authorization_endpoint: firstRoute.authorizationEndpoint,
+            token_endpoint: firstRoute.tokenEndpoint,
+            jwks_uri: `${firstRoute.providerUrl}/.well-known/jwks.json`,
+            
+            // Supported methods and parameters
+            scopes_supported: [ 'openid', 'profile', 'email' ],
+            response_types_supported: [ 'code' ],
+            response_modes_supported: [ 'query', 'form_post' ],
+            grant_types_supported: [ 'authorization_code' ],
+            
+            // PKCE support (OAuth 2.1 requirement)
+            code_challenge_methods_supported: [ 'S256' ],
+            
+            // Token endpoint authentication methods
+            token_endpoint_auth_methods_supported: [ 'client_secret_basic', 'client_secret_post' ],
+            
+            // Claims and features
+            claims_supported: [ 'sub', 'iat', 'exp', 'aud', 'iss', 'scope' ],
+            subject_types_supported: [ 'public' ]
+        }
+        
+        return discoveryData
     }
 
 

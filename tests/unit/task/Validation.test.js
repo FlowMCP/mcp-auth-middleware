@@ -5,17 +5,16 @@ describe( 'Validation', () => {
 
     describe( 'validationCreate', () => {
 
-        test( 'returns success for valid configuration', () => {
+        test( 'returns success for valid authType configuration', () => {
             const config = {
-                realmsByRoute: {
+                routes: {
                     '/api': {
-                        providerName: 'auth0',
-                        providerUrl: 'https://auth.example.com',
-                        realm: 'test-realm',
-                        clientId: 'test-client',
-                        clientSecret: 'test-secret',
-                        requiredScopes: [ 'read', 'write' ],
-                        resourceUri: 'https://localhost:3000/api'
+                        authType: 'oauth21_auth0',
+                        providerUrl: 'https://tenant.auth0.com',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        scope: 'openid profile email api:read api:write',
+                        audience: 'https://api.example.com'
                     }
                 },
                 silent: true
@@ -28,39 +27,39 @@ describe( 'Validation', () => {
         } )
 
 
-        test( 'validates realmsByRoute as required field', () => {
+        test( 'validates routes as required field', () => {
             const result = Validation.validationCreate( { silent: false } )
 
             expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'realmsByRoute: Missing value' )
+            expect( result.messages ).toContain( 'routes: Missing value' )
         } )
 
 
-        test( 'validates realmsByRoute as object', () => {
+        test( 'validates routes as object', () => {
             const result = Validation.validationCreate( { 
-                realmsByRoute: 'not an object',
+                routes: 'not an object',
                 silent: true
             } )
 
             expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'realmsByRoute: Must be an object' )
+            expect( result.messages ).toContain( 'routes: Must be an object' )
         } )
 
 
-        test( 'validates realmsByRoute not as array', () => {
+        test( 'validates routes not as array', () => {
             const result = Validation.validationCreate( { 
-                realmsByRoute: [ 'not', 'an', 'object' ],
+                routes: [ 'not', 'an', 'object' ],
                 silent: true
             } )
 
             expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'realmsByRoute: Must be an object' )
+            expect( result.messages ).toContain( 'routes: Must be an object' )
         } )
 
 
         test( 'validates silent field type', () => {
             const result = Validation.validationCreate( { 
-                realmsByRoute: { '/api': {} },
+                routes: { '/api': {} },
                 silent: 'not a boolean'
             } )
 
@@ -69,23 +68,130 @@ describe( 'Validation', () => {
         } )
 
 
-        test( 'validates route path format', () => {
+        test( 'requires authType field in route config', () => {
             const result = Validation.validationCreate( { 
-                realmsByRoute: {
-                    'api-without-slash': {
-                        providerName: 'auth0'
+                routes: {
+                    '/api': {
+                        providerUrl: 'https://tenant.auth0.com',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        scope: 'openid profile email',
+                        audience: 'https://api.example.com'
                     }
                 }
             } )
 
             expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "api-without-slash": Must start with /' )
+            expect( result.messages ).toContain( 'Route "/api": Missing required field: authType' )
         } )
 
 
-        test( 'validates route configuration as object', () => {
+        test( 'validates authType as string', () => {
             const result = Validation.validationCreate( { 
-                realmsByRoute: {
+                routes: {
+                    '/api': {
+                        authType: 123, // Invalid type
+                        providerUrl: 'https://tenant.auth0.com',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        scope: 'openid profile email',
+                        audience: 'https://api.example.com'
+                    }
+                }
+            } )
+
+            expect( result.status ).toBe( false )
+            expect( result.messages ).toContain( 'Route "/api": authType must be a string' )
+        } )
+
+
+        test( 'validates oauth21_auth0 required fields', () => {
+            const result = Validation.validationCreate( { 
+                routes: {
+                    '/api': {
+                        authType: 'oauth21_auth0',
+                        providerUrl: 'https://tenant.auth0.com'
+                        // Missing: clientId, clientSecret, scope, audience
+                    }
+                }
+            } )
+
+            expect( result.status ).toBe( false )
+            expect( result.messages.some( msg => msg.includes( 'missing required fields' ) ) ).toBe( true )
+        } )
+
+
+        test( 'validates oauth21_auth0 provider URL format', () => {
+            const result = Validation.validationCreate( { 
+                routes: {
+                    '/api': {
+                        authType: 'oauth21_auth0',
+                        providerUrl: 'https://example.com', // Not auth0.com domain
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        scope: 'openid profile email',
+                        audience: 'https://api.example.com'
+                    }
+                }
+            } )
+
+            expect( result.status ).toBe( false )
+            expect( result.messages.some( msg => msg.includes( 'auth0.com domain' ) ) ).toBe( true )
+        } )
+
+
+        test( 'validates route path format', () => {
+            const result = Validation.validationCreate( { 
+                routes: {
+                    'api': { // Should start with '/'
+                        authType: 'oauth21_auth0',
+                        providerUrl: 'https://tenant.auth0.com',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        scope: 'openid profile email',
+                        audience: 'https://api.example.com'
+                    }
+                }
+            } )
+
+            expect( result.status ).toBe( false )
+            expect( result.messages ).toContain( 'Route "api": Must start with /' )
+        } )
+
+
+        test( 'validates multiple routes', () => {
+            const config = {
+                routes: {
+                    '/api': {
+                        authType: 'oauth21_auth0',
+                        providerUrl: 'https://tenant.auth0.com',
+                        clientId: 'api-client-id',
+                        clientSecret: 'api-client-secret',
+                        scope: 'openid profile email api:read',
+                        audience: 'https://api.example.com'
+                    },
+                    '/admin': {
+                        authType: 'oauth21_auth0',
+                        providerUrl: 'https://admin.auth0.com',
+                        clientId: 'admin-client-id',
+                        clientSecret: 'admin-client-secret',
+                        scope: 'openid profile email admin:full',
+                        audience: 'https://admin.example.com'
+                    }
+                },
+                silent: true
+            }
+
+            const result = Validation.validationCreate( config )
+
+            expect( result.status ).toBe( true )
+            expect( result.messages ).toHaveLength( 0 )
+        } )
+
+
+        test( 'validates route configuration objects', () => {
+            const result = Validation.validationCreate( { 
+                routes: {
                     '/api': 'not an object'
                 }
             } )
@@ -94,138 +200,12 @@ describe( 'Validation', () => {
             expect( result.messages ).toContain( 'Route "/api": Configuration must be an object' )
         } )
 
-
-        test( 'validates providerName field type', () => {
-            const result = Validation.validationCreate( { 
-                realmsByRoute: {
-                    '/api': {
-                        providerName: 123  // not a string
-                    }
-                }
-            } )
-
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "/api": providerName must be a string' )
-        } )
-
-
-        test( 'validates unsupported provider name', () => {
-            const result = Validation.validationCreate( { 
-                realmsByRoute: {
-                    '/api': {
-                        providerName: 'unsupported-provider'
-                    }
-                }
-            } )
-
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "/api": Unsupported provider "unsupported-provider". Supported providers: auth0' )
-        } )
-
-
-        test( 'validates providerUrl field type', () => {
-            const result = Validation.validationCreate( { 
-                realmsByRoute: {
-                    '/api': {
-                        providerName: 'auth0',
-                        providerUrl: 123  // not a string
-                    }
-                }
-            } )
-
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "/api": providerUrl must be a string' )
-        } )
-
-
-        test( 'validates realm field type', () => {
-            const result = Validation.validationCreate( { 
-                realmsByRoute: {
-                    '/api': {
-                        providerName: 'auth0',
-                        realm: 123  // not a string
-                    }
-                }
-            } )
-
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "/api": realm must be a string' )
-        } )
-
-
-        test( 'validates clientId field type', () => {
-            const result = Validation.validationCreate( { 
-                realmsByRoute: {
-                    '/api': {
-                        providerName: 'auth0',
-                        clientId: 123  // not a string
-                    }
-                }
-            } )
-
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "/api": clientId must be a string' )
-        } )
-
-
-        test( 'validates clientSecret field type', () => {
-            const result = Validation.validationCreate( { 
-                realmsByRoute: {
-                    '/api': {
-                        providerName: 'auth0',
-                        clientSecret: 123  // not a string
-                    }
-                }
-            } )
-
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "/api": clientSecret must be a string' )
-        } )
-
-
-        test( 'validates requiredScopes field type', () => {
-            const result = Validation.validationCreate( { 
-                realmsByRoute: {
-                    '/api': {
-                        providerName: 'auth0',
-                        requiredScopes: 'not an array'  // not an array
-                    }
-                }
-            } )
-
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "/api": requiredScopes must be an array' )
-        } )
-
-
-        test( 'validates resourceUri field type', () => {
-            const result = Validation.validationCreate( { 
-                realmsByRoute: {
-                    '/api': {
-                        providerName: 'auth0',
-                        resourceUri: 123  // not a string
-                    }
-                }
-            } )
-
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "/api": resourceUri must be a string' )
-        } )
-
     } )
 
 
     describe( 'validationGetRouteConfig', () => {
 
-        test( 'returns success for valid route path', () => {
-            const result = Validation.validationGetRouteConfig( { routePath: '/api' } )
-
-            expect( result.status ).toBe( true )
-            expect( result.messages ).toHaveLength( 0 )
-        } )
-
-
-        test( 'validates routePath as required field', () => {
+        test( 'validates routePath as required', () => {
             const result = Validation.validationGetRouteConfig( {} )
 
             expect( result.status ).toBe( false )
@@ -233,7 +213,7 @@ describe( 'Validation', () => {
         } )
 
 
-        test( 'validates routePath field type', () => {
+        test( 'validates routePath as string', () => {
             const result = Validation.validationGetRouteConfig( { routePath: 123 } )
 
             expect( result.status ).toBe( false )
@@ -242,10 +222,67 @@ describe( 'Validation', () => {
 
 
         test( 'validates routePath format', () => {
-            const result = Validation.validationGetRouteConfig( { routePath: 'api-without-slash' } )
+            const result = Validation.validationGetRouteConfig( { routePath: 'api' } )
 
             expect( result.status ).toBe( false )
             expect( result.messages ).toContain( 'routePath: Must start with /' )
+        } )
+
+
+        test( 'returns success for valid routePath', () => {
+            const result = Validation.validationGetRouteConfig( { routePath: '/api' } )
+
+            expect( result.status ).toBe( true )
+            expect( result.messages ).toHaveLength( 0 )
+        } )
+
+    } )
+
+
+    describe( 'getSupportedAuthTypes', () => {
+
+        test( 'returns supported auth types', () => {
+            const result = Validation.getSupportedAuthTypes()
+
+            expect( result ).toHaveProperty( 'authTypes' )
+            expect( Array.isArray( result.authTypes ) || result.authTypes instanceof Map ).toBe( true )
+        } )
+
+    } )
+
+
+    describe( 'validateAuthTypeConfig', () => {
+
+        test( 'validates oauth21_auth0 configuration', () => {
+            const result = Validation.validateAuthTypeConfig( {
+                authType: 'oauth21_auth0',
+                config: {
+                    authType: 'oauth21_auth0',
+                    providerUrl: 'https://tenant.auth0.com',
+                    clientId: 'test-client-id',
+                    clientSecret: 'test-client-secret',
+                    scope: 'openid profile email',
+                    audience: 'https://api.example.com'
+                }
+            } )
+
+            expect( result.status ).toBe( true )
+            expect( result.messages ).toHaveLength( 0 )
+        } )
+
+
+        test( 'fails for invalid oauth21_auth0 configuration', () => {
+            const result = Validation.validateAuthTypeConfig( {
+                authType: 'oauth21_auth0',
+                config: {
+                    authType: 'oauth21_auth0',
+                    providerUrl: 'https://example.com' // Missing auth0.com domain
+                    // Missing other required fields
+                }
+            } )
+
+            expect( result.status ).toBe( false )
+            expect( result.messages.length ).toBeGreaterThan( 0 )
         } )
 
     } )

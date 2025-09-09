@@ -1,11 +1,15 @@
+import { AuthTypeValidator } from '../core/AuthTypeValidator.mjs'
+import { AuthTypeRegistry } from '../core/AuthTypeRegistry.mjs'
+
+
 class Validation {
-    static validationCreate( { realmsByRoute, silent } ) {
+    static validationCreate( { routes, silent } ) {
         const struct = { status: false, messages: [] }
 
-        if( realmsByRoute === undefined || realmsByRoute === null ) {
-            struct['messages'].push( 'realmsByRoute: Missing value' )
-        } else if( typeof realmsByRoute !== 'object' || Array.isArray( realmsByRoute ) ) {
-            struct['messages'].push( 'realmsByRoute: Must be an object' )
+        if( routes === undefined || routes === null ) {
+            struct['messages'].push( 'routes: Missing value' )
+        } else if( typeof routes !== 'object' || Array.isArray( routes ) ) {
+            struct['messages'].push( 'routes: Must be an object' )
         }
 
         if( silent !== undefined && typeof silent !== 'boolean' ) {
@@ -16,9 +20,9 @@ class Validation {
             return struct
         }
 
-        // Validate realmsByRoute structure
-        if( typeof realmsByRoute === 'object' && !Array.isArray( realmsByRoute ) ) {
-            Object.entries( realmsByRoute ).forEach( ( [ routePath, config ] ) => {
+        // Validate routes structure
+        if( typeof routes === 'object' && !Array.isArray( routes ) ) {
+            Object.entries( routes ).forEach( ( [ routePath, config ] ) => {
                 if( !routePath || !routePath.startsWith( '/' ) ) {
                     struct['messages'].push( `Route "${routePath}": Must start with /` )
                 }
@@ -26,49 +30,25 @@ class Validation {
                 if( !config || typeof config !== 'object' ) {
                     struct['messages'].push( `Route "${routePath}": Configuration must be an object` )
                 } else {
-                    // Validate required providerName field
-                    if( !config.providerName ) {
-                        struct['messages'].push( `Route "${routePath}": Missing required field: providerName` )
-                    } else if( typeof config.providerName !== 'string' ) {
-                        struct['messages'].push( `Route "${routePath}": providerName must be a string` )
+                    // Validate required authType field
+                    if( !config.authType ) {
+                        struct['messages'].push( `Route "${routePath}": Missing required field: authType` )
+                    } else if( typeof config.authType !== 'string' ) {
+                        struct['messages'].push( `Route "${routePath}": authType must be a string` )
                     } else {
-                        // Validate supported providers
-                        const supportedProviders = [ 'auth0' ]
-                        if( !supportedProviders.includes( config.providerName ) ) {
-                            struct['messages'].push( `Route "${routePath}": Unsupported provider "${config.providerName}". Supported providers: ${supportedProviders.join( ', ' )}` )
+                        // Validate authType configuration using AuthTypeValidator
+                        const authTypeValidation = AuthTypeValidator.validateAuthType( { 
+                            authType: config.authType, 
+                            config 
+                        } )
+                        
+                        if( !authTypeValidation.status ) {
+                            authTypeValidation.messages.forEach( ( message ) => {
+                                struct['messages'].push( `Route "${routePath}": ${message}` )
+                            } )
                         }
                     }
 
-                    const requiredFields = [ 'providerUrl', 'realm', 'clientId', 'clientSecret', 'requiredScopes', 'resourceUri' ]
-                    const missing = requiredFields.filter( field => !config[field] )
-                    
-                    if( missing.length > 0 ) {
-                        struct['messages'].push( `Route "${routePath}": Missing required fields: ${missing.join( ', ' )}` )
-                    }
-
-                    if( config.providerUrl && typeof config.providerUrl !== 'string' ) {
-                        struct['messages'].push( `Route "${routePath}": providerUrl must be a string` )
-                    }
-
-                    if( config.realm && typeof config.realm !== 'string' ) {
-                        struct['messages'].push( `Route "${routePath}": realm must be a string` )
-                    }
-
-                    if( config.clientId && typeof config.clientId !== 'string' ) {
-                        struct['messages'].push( `Route "${routePath}": clientId must be a string` )
-                    }
-
-                    if( config.clientSecret && typeof config.clientSecret !== 'string' ) {
-                        struct['messages'].push( `Route "${routePath}": clientSecret must be a string` )
-                    }
-
-                    if( config.requiredScopes && !Array.isArray( config.requiredScopes ) ) {
-                        struct['messages'].push( `Route "${routePath}": requiredScopes must be an array` )
-                    }
-
-                    if( config.resourceUri && typeof config.resourceUri !== 'string' ) {
-                        struct['messages'].push( `Route "${routePath}": resourceUri must be a string` )
-                    }
                 }
             } )
         }
@@ -91,6 +71,18 @@ class Validation {
 
         struct['status'] = struct['messages'].length === 0
         return struct
+    }
+
+
+    static getSupportedAuthTypes() {
+        const { authTypes } = AuthTypeRegistry.getSupportedAuthTypes()
+        
+        return { authTypes }
+    }
+
+
+    static validateAuthTypeConfig( { authType, config } ) {
+        return AuthTypeValidator.validateAuthType( { authType, config } )
     }
 }
 

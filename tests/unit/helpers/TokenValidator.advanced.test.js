@@ -25,7 +25,7 @@ describe( 'TokenValidator - Advanced Coverage Tests', () => {
     let validator
     
     const testConfig = {
-        realmsByRoute: {
+        routes: {
             '/api': {
                 providerUrl: 'https://auth.example.com',
                 realm: 'test-realm',

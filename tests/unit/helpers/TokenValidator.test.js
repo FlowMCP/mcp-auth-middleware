@@ -54,8 +54,8 @@ describe( 'TokenValidator', () => {
                 clientId: 'test-client'
             } )
             
-            const routes = validator.getAllRoutes()
-            expect( routes ).toContain( 'default' )
+            const allRoutes = validator.getAllRoutes()
+            expect( allRoutes ).toContain( 'default' )
         } )
 
     } )
@@ -64,7 +64,7 @@ describe( 'TokenValidator', () => {
     describe( 'static createForMultiRealm', () => {
         
         test( 'creates validator with multiple route configurations', () => {
-            const realmsByRoute = {
+            const routes = {
                 '/api': {
                     keycloakUrl: 'https://auth.example.com',
                     realm: 'api-realm',
@@ -77,14 +77,14 @@ describe( 'TokenValidator', () => {
                 }
             }
             
-            const validator = TokenValidator.createForMultiRealm( { realmsByRoute } )
+            const validator = TokenValidator.createForMultiRealm( { routes } )
             
             expect( validator ).toBeInstanceOf( TokenValidator )
         } )
 
 
         test( 'sets up all route configurations', () => {
-            const realmsByRoute = {
+            const routes = {
                 '/api': {
                     keycloakUrl: 'https://auth.example.com',
                     realm: 'api-realm', 
@@ -97,17 +97,17 @@ describe( 'TokenValidator', () => {
                 }
             }
             
-            const validator = TokenValidator.createForMultiRealm( { realmsByRoute } )
-            const routes = validator.getAllRoutes()
+            const validator = TokenValidator.createForMultiRealm( { routes } )
+            const allRoutes = validator.getAllRoutes()
             
-            expect( routes ).toContain( '/api' )
-            expect( routes ).toContain( '/admin' )
-            expect( routes ).toHaveLength( 2 )
+            expect( allRoutes ).toContain( '/api' )
+            expect( allRoutes ).toContain( '/admin' )
+            expect( allRoutes ).toHaveLength( 2 )
         } )
 
 
         test( 'handles optional configuration parameters', () => {
-            const realmsByRoute = {
+            const routes = {
                 '/api': {
                     keycloakUrl: 'https://auth.example.com',
                     realm: 'api-realm',
@@ -117,15 +117,15 @@ describe( 'TokenValidator', () => {
                 }
             }
             
-            const validator = TokenValidator.createForMultiRealm( { realmsByRoute } )
-            const routes = validator.getAllRoutes()
+            const validator = TokenValidator.createForMultiRealm( { routes } )
+            const allRoutes = validator.getAllRoutes()
             
-            expect( routes ).toContain( '/api' )
+            expect( allRoutes ).toContain( '/api' )
         } )
 
 
         test( 'creates validator with silent option', () => {
-            const realmsByRoute = {
+            const routes = {
                 '/api': {
                     keycloakUrl: 'https://auth.example.com',
                     realm: 'api-realm',
@@ -133,7 +133,7 @@ describe( 'TokenValidator', () => {
                 }
             }
             
-            const validator = TokenValidator.createForMultiRealm( { realmsByRoute, silent: true } )
+            const validator = TokenValidator.createForMultiRealm( { routes, silent: true } )
             
             expect( validator ).toBeInstanceOf( TokenValidator )
         } )
@@ -145,9 +145,9 @@ describe( 'TokenValidator', () => {
         
         test( 'returns empty array for new instance', () => {
             const validator = new TokenValidator( {} )
-            const routes = validator.getAllRoutes()
+            const allRoutes = validator.getAllRoutes()
             
-            expect( routes ).toEqual( [] )
+            expect( allRoutes ).toEqual( [] )
         } )
 
 
@@ -158,14 +158,14 @@ describe( 'TokenValidator', () => {
                 clientId: 'test-client'
             } )
             
-            const routes = validator.getAllRoutes()
+            const allRoutes = validator.getAllRoutes()
             
-            expect( routes ).toEqual( [ 'default' ] )
+            expect( allRoutes ).toEqual( [ 'default' ] )
         } )
 
 
         test( 'returns multiple routes for multi-realm setup', () => {
-            const realmsByRoute = {
+            const routes = {
                 '/api': {
                     keycloakUrl: 'https://auth.example.com',
                     realm: 'api-realm',
@@ -178,11 +178,11 @@ describe( 'TokenValidator', () => {
                 }
             }
             
-            const validator = TokenValidator.createForMultiRealm( { realmsByRoute } )
-            const routes = validator.getAllRoutes()
+            const validator = TokenValidator.createForMultiRealm( { routes } )
+            const allRoutes = validator.getAllRoutes()
             
-            expect( routes ).toContain( '/api' )
-            expect( routes ).toContain( '/admin' )
+            expect( allRoutes ).toContain( '/api' )
+            expect( allRoutes ).toContain( '/admin' )
         } )
 
     } )

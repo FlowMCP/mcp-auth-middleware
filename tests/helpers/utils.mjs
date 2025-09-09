@@ -32,6 +32,9 @@ class TestUtils {
      */
     static getEnvParams( { envPath, selection } ) {
         let result = {}
+
+        const __dirname = path.dirname( new URL( import.meta.url ).pathname )
+        envPath = path.resolve( __dirname, envPath )
         
         try {
             result = fs

@@ -1,9 +1,13 @@
-import { BaseProvider } from './BaseProvider.mjs'
+import { Logger } from '../../helpers/Logger.mjs'
 
 
-class Auth0Provider extends BaseProvider {
+class OAuth21Auth0Provider {
+    #config
+    #silent
+
     constructor( { config, silent = false } ) {
-        super( { config, silent } )
+        this.#config = config
+        this.#silent = silent
     }
 
 
@@ -13,16 +17,18 @@ class Auth0Provider extends BaseProvider {
 
 
     normalizeConfiguration( { config } ) {
-        const { providerUrl, realm, clientId, clientSecret, requiredScopes, resourceUri } = config
+        const { providerUrl, realm, clientId, clientSecret, scope, audience, resourceUri } = config
         
         const normalizedConfig = {
             providerUrl,
-            realm: realm || 'auth0',
+            realm: realm || 'oauth21-auth0',
             clientId,
             clientSecret,
-            requiredScopes: requiredScopes || [ 'openid', 'profile', 'email' ],
+            scope: scope || 'openid profile email',
+            audience,
             resourceUri,
-            authFlow: 'authorization_code'
+            authFlow: 'authorization_code',
+            authType: 'oauth21_auth0'
         }
 
         return { normalizedConfig }
@@ -34,10 +40,10 @@ class Auth0Provider extends BaseProvider {
         
         const endpoints = {
             authorizationEndpoint: `${providerUrl}/authorize`,
-            tokenEndpoint: `${providerUrl}/oauth/token`,
+            tokenEndpoint: config.tokenEndpoint || `${providerUrl}/oauth/token`,
             deviceAuthorizationEndpoint: `${providerUrl}/oauth/device/code`,
             jwksUrl: `${providerUrl}/.well-known/jwks.json`,
-            userInfoUrl: `${providerUrl}/userinfo`,
+            userInfoUrl: config.userInfoEndpoint || `${providerUrl}/userinfo`,
             introspectionUrl: `${providerUrl}/oauth/token/introspection`,
             discoveryUrl: `${providerUrl}/.well-known/openid_configuration`
         }
@@ -46,27 +52,31 @@ class Auth0Provider extends BaseProvider {
     }
 
 
-    static validateAuth0Config( { config } ) {
+    static validateOAuth21Auth0Config( { config } ) {
         const struct = { status: false, messages: [] }
 
         if( !config || typeof config !== 'object' ) {
-            struct['messages'].push( 'Auth0 config must be a valid object' )
+            struct['messages'].push( 'OAuth21Auth0 config must be a valid object' )
             return struct
         }
 
-        const requiredFields = [ 'providerUrl', 'clientId', 'clientSecret' ]
+        const requiredFields = [ 'providerUrl', 'clientId', 'clientSecret', 'scope', 'audience' ]
         const missing = requiredFields.filter( field => !config[field] )
         
         if( missing.length > 0 ) {
-            struct['messages'].push( `Auth0 config missing required fields: ${missing.join( ', ' )}` )
+            struct['messages'].push( `OAuth21Auth0 config missing required fields: ${missing.join( ', ' )}` )
         }
 
         if( config.providerUrl && !config.providerUrl.includes( 'auth0.com' ) ) {
-            struct['messages'].push( 'Auth0 provider requires auth0.com domain in providerUrl' )
+            struct['messages'].push( 'OAuth21Auth0 provider requires auth0.com domain in providerUrl' )
         }
 
-        if( config.requiredScopes && !Array.isArray( config.requiredScopes ) ) {
-            struct['messages'].push( 'Auth0 requiredScopes must be an array' )
+        if( config.scope && typeof config.scope !== 'string' ) {
+            struct['messages'].push( 'OAuth21Auth0 scope must be a string' )
+        }
+
+        if( config.audience && typeof config.audience !== 'string' ) {
+            struct['messages'].push( 'OAuth21Auth0 audience must be a string' )
         }
 
         struct['status'] = struct['messages'].length === 0
@@ -75,12 +85,12 @@ class Auth0Provider extends BaseProvider {
 
 
     getProviderName() {
-        return 'auth0'
+        return 'oauth21_auth0'
     }
 
 
     getDisplayName() {
-        return 'Auth0'
+        return 'OAuth 2.1 with Auth0'
     }
 
 
@@ -90,9 +100,13 @@ class Auth0Provider extends BaseProvider {
 
 
     static getDefaultScopes() {
-        return [ 'openid', 'profile', 'email' ]
+        return 'openid profile email'
+    }
+
+
+    static getAuthType() {
+        return 'oauth21_auth0'
     }
 }
 
-
-export { Auth0Provider }
+export { OAuth21Auth0Provider }

@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals'
 
-// Mock the OAuthMiddleware implementation
-const mockOAuthMiddlewareImpl = {
+// Mock the McpAuthMiddleware implementation
+const mockMcpAuthMiddlewareImpl = {
     router: jest.fn(),
     getRouteConfig: jest.fn(),
     getRouteClient: jest.fn(),
@@ -15,9 +15,9 @@ const mockValidation = {
     validationGetRouteConfig: jest.fn()
 }
 
-jest.unstable_mockModule( '../../src/task/OAuthMiddleware.mjs', () => ({
-    OAuthMiddleware: {
-        create: jest.fn().mockResolvedValue( mockOAuthMiddlewareImpl )
+jest.unstable_mockModule( '../../src/task/McpAuthMiddleware.mjs', () => ({
+    McpAuthMiddleware: {
+        create: jest.fn().mockResolvedValue( mockMcpAuthMiddlewareImpl )
     }
 }) )
 
@@ -25,10 +25,10 @@ jest.unstable_mockModule( '../../src/task/Validation.mjs', () => ({
     Validation: mockValidation
 }) )
 
-const { OAuthMiddleware } = await import( '../../src/index.mjs' )
+const { McpAuthMiddleware } = await import( '../../src/index.mjs' )
 
 
-describe( 'OAuthMiddleware - Index Wrapper', () => {
+describe( 'McpAuthMiddleware - Index Wrapper', () => {
 
     beforeEach( () => {
         jest.clearAllMocks()
@@ -43,12 +43,31 @@ describe( 'OAuthMiddleware - Index Wrapper', () => {
                 messages: []
             } )
 
-            const middleware = await OAuthMiddleware.create( {
-                realmsByRoute: { '/api': { providerUrl: 'https://auth.example.com' } }
+            const middleware = await McpAuthMiddleware.create( {
+                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
             } )
 
             expect( middleware ).toBeDefined()
             expect( mockValidation.validationCreate ).toHaveBeenCalled()
+        } )
+
+
+        test( 'creates middleware successfully with silent parameter', async () => {
+            mockValidation.validationCreate.mockReturnValue( {
+                status: true,
+                messages: []
+            } )
+
+            const middleware = await McpAuthMiddleware.create( {
+                routes: { '/api': { providerUrl: 'https://auth.example.com' } },
+                silent: true
+            } )
+
+            expect( middleware ).toBeDefined()
+            expect( mockValidation.validationCreate ).toHaveBeenCalledWith( {
+                routes: { '/api': { providerUrl: 'https://auth.example.com' } },
+                silent: true
+            } )
         } )
 
 
@@ -58,8 +77,8 @@ describe( 'OAuthMiddleware - Index Wrapper', () => {
                 messages: [ 'Invalid configuration', 'Missing required field' ]
             } )
 
-            await expect( OAuthMiddleware.create( {
-                realmsByRoute: { '/api': { invalid: 'config' } }
+            await expect( McpAuthMiddleware.create( {
+                routes: { '/api': { invalid: 'config' } }
             } ) ).rejects.toThrow( 'Validation failed: Invalid configuration, Missing required field' )
         } )
 
@@ -75,8 +94,8 @@ describe( 'OAuthMiddleware - Index Wrapper', () => {
                 status: true,
                 messages: []
             } )
-            middleware = await OAuthMiddleware.create( {
-                realmsByRoute: { '/api': { providerUrl: 'https://auth.example.com' } }
+            middleware = await McpAuthMiddleware.create( {
+                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
             } )
         } )
 
@@ -86,7 +105,7 @@ describe( 'OAuthMiddleware - Index Wrapper', () => {
                 status: true,
                 messages: []
             } )
-            mockOAuthMiddlewareImpl.getRouteConfig.mockReturnValue( {
+            mockMcpAuthMiddlewareImpl.getRouteConfig.mockReturnValue( {
                 providerUrl: 'https://auth.example.com'
             } )
 
@@ -120,8 +139,8 @@ describe( 'OAuthMiddleware - Index Wrapper', () => {
                 status: true,
                 messages: []
             } )
-            middleware = await OAuthMiddleware.create( {
-                realmsByRoute: { '/api': { providerUrl: 'https://auth.example.com' } }
+            middleware = await McpAuthMiddleware.create( {
+                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
             } )
         } )
 
@@ -131,7 +150,7 @@ describe( 'OAuthMiddleware - Index Wrapper', () => {
                 status: true,
                 messages: []
             } )
-            mockOAuthMiddlewareImpl.getRouteClient.mockReturnValue( {
+            mockMcpAuthMiddlewareImpl.getRouteClient.mockReturnValue( {
                 provider: 'auth0'
             } )
 
@@ -163,16 +182,16 @@ describe( 'OAuthMiddleware - Index Wrapper', () => {
                 status: true,
                 messages: []
             } )
-            mockOAuthMiddlewareImpl.router.mockReturnValue( 'mock-router' )
+            mockMcpAuthMiddlewareImpl.router.mockReturnValue( 'mock-router' )
 
-            const middleware = await OAuthMiddleware.create( {
-                realmsByRoute: { '/api': { providerUrl: 'https://auth.example.com' } }
+            const middleware = await McpAuthMiddleware.create( {
+                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
             } )
 
             const router = middleware.router()
 
             expect( router ).toBe( 'mock-router' )
-            expect( mockOAuthMiddlewareImpl.router ).toHaveBeenCalled()
+            expect( mockMcpAuthMiddlewareImpl.router ).toHaveBeenCalled()
         } )
 
     } )
@@ -185,16 +204,16 @@ describe( 'OAuthMiddleware - Index Wrapper', () => {
                 status: true,
                 messages: []
             } )
-            mockOAuthMiddlewareImpl.getRoutes.mockReturnValue( [ '/api', '/admin' ] )
+            mockMcpAuthMiddlewareImpl.getRoutes.mockReturnValue( [ '/api', '/admin' ] )
 
-            const middleware = await OAuthMiddleware.create( {
-                realmsByRoute: { '/api': { providerUrl: 'https://auth.example.com' } }
+            const middleware = await McpAuthMiddleware.create( {
+                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
             } )
 
             const routes = middleware.getRoutes()
 
             expect( routes ).toEqual( [ '/api', '/admin' ] )
-            expect( mockOAuthMiddlewareImpl.getRoutes ).toHaveBeenCalled()
+            expect( mockMcpAuthMiddlewareImpl.getRoutes ).toHaveBeenCalled()
         } )
 
     } )
@@ -207,18 +226,18 @@ describe( 'OAuthMiddleware - Index Wrapper', () => {
                 status: true,
                 messages: []
             } )
-            mockOAuthMiddlewareImpl.getRealms.mockReturnValue( [
+            mockMcpAuthMiddlewareImpl.getRealms.mockReturnValue( [
                 { route: '/api', realm: 'api-realm' }
             ] )
 
-            const middleware = await OAuthMiddleware.create( {
-                realmsByRoute: { '/api': { providerUrl: 'https://auth.example.com' } }
+            const middleware = await McpAuthMiddleware.create( {
+                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
             } )
 
             const realms = middleware.getRealms()
 
             expect( realms ).toEqual( [ { route: '/api', realm: 'api-realm' } ] )
-            expect( mockOAuthMiddlewareImpl.getRealms ).toHaveBeenCalled()
+            expect( mockMcpAuthMiddlewareImpl.getRealms ).toHaveBeenCalled()
         } )
 
     } )

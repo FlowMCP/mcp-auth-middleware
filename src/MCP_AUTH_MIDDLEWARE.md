@@ -86,7 +86,7 @@ Route-specific resource metadata with audience binding information.
 src/
 ├── index.mjs                 # Public API wrapper with validation
 ├── task/
-│   ├── OAuthMiddleware.mjs   # Core middleware implementation
+│   ├── McpAuthMiddleware.mjs   # Core middleware implementation
 │   ├── server.mjs            # Production server example
 │   └── Validation.mjs        # Input validation logic
 └── helpers/
@@ -99,12 +99,12 @@ src/
 
 ### Core Components
 
-#### OAuthMiddleware (index.mjs)
+#### McpAuthMiddleware (index.mjs)
 - Public API surface
 - Input validation via Validation class
 - Delegates to implementation
 
-#### OAuthMiddlewareImpl (task/OAuthMiddleware.mjs)
+#### McpAuthMiddlewareImpl (task/McpAuthMiddleware.mjs)
 - Express router creation
 - Route-to-realm mapping
 - Discovery endpoint generation

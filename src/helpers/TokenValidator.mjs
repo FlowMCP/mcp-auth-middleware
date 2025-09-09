@@ -19,11 +19,11 @@ class TokenValidator {
     }
 
 
-    static createForMultiRealm( { realmsByRoute, silent = false } ) {
+    static createForMultiRealm( { routes, silent = false } ) {
         const validator = new TokenValidator( { silent } )
         
         // Initialize all route configurations and JWKS clients
-        Object.entries( realmsByRoute ).forEach( ( [ route, config ] ) => {
+        Object.entries( routes ).forEach( ( [ route, config ] ) => {
             const normalizedConfig = {
                 keycloakUrl: config.keycloakUrl,
                 realm: config.realm,

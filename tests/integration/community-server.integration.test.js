@@ -5,7 +5,7 @@
  * FlowMCP Community Server to ensure backward compatibility and new features.
  */
 
-import { OAuthMiddleware } from '../../src/index.mjs'
+import { McpAuthMiddleware } from '../../src/index.mjs'
 import { TestUtils } from '../helpers/utils.mjs'
 
 // Test configuration using .auth.env.example
@@ -25,30 +25,28 @@ describe( 'Community Server Integration', () => {
     beforeEach( async () => {
         // Use mock configuration for testing
         testConfig = {
-            realmsByRoute: {
+            routes: {
                 '/mcp': {
-                    providerName: 'auth0',
+                    authType: 'oauth21_auth0',
                     providerUrl: config.providerUrl,
-                    realm: 'test-realm',
                     clientId: 'test-client',
                     clientSecret: 'test-secret',
-                    requiredScopes: ['mcp:access'],
-                    resourceUri: 'http://localhost:3000/mcp'
+                    scope: 'openid mcp:access',
+                    audience: 'http://localhost:3000/mcp'
                 },
                 '/api': {
-                    providerName: 'auth0',
+                    authType: 'oauth21_auth0',
                     providerUrl: config.providerUrl,
-                    realm: 'api-realm', 
                     clientId: 'api-client',
                     clientSecret: 'api-secret',
-                    requiredScopes: ['api:read', 'api:write'],
-                    resourceUri: 'http://localhost:3000/api'
+                    scope: 'openid api:read api:write',
+                    audience: 'http://localhost:3000/api'
                 }
             },
             silent: true
         }
         
-        middleware = await OAuthMiddleware.create( testConfig )
+        middleware = await McpAuthMiddleware.create( testConfig )
     } )
     
     describe( 'FlowMCP RemoteServer Integration', () => {
@@ -161,18 +159,18 @@ describe( 'Community Server Integration', () => {
             // Test that the new API maintains compatibility with expected usage patterns
             
             // 1. Should create middleware with async pattern
-            const compatibilityMiddleware = await OAuthMiddleware.create({
-                realmsByRoute: {
+            const compatibilityMiddleware = await McpAuthMiddleware.create({
+                routes: {
                     '/': { // Root route for maximum compatibility
-                        providerName: 'auth0',
+                        authType: 'oauth21_auth0',
                         providerUrl: config.providerUrl,
-                        realm: 'mcp-realm',
                         clientId: 'mcp-client',
                         clientSecret: 'mcp-secret',
-                        requiredScopes: ['mcp:access'],
-                        resourceUri: 'http://localhost:3000'
+                        scope: 'openid mcp:access',
+                        audience: 'http://localhost:3000/'
                     }
-                }
+                },
+                silent: true
             })
             
             expect( compatibilityMiddleware ).toBeDefined()
@@ -190,18 +188,18 @@ describe( 'Community Server Integration', () => {
         } )
         
         test( 'root route configuration works for legacy compatibility', async () => {
-            const rootMiddleware = await OAuthMiddleware.create({
-                realmsByRoute: {
+            const rootMiddleware = await McpAuthMiddleware.create({
+                routes: {
                     '/': {
-                        providerName: 'auth0',
+                        authType: 'oauth21_auth0',
                         providerUrl: config.providerUrl,
-                        realm: 'legacy-realm',
                         clientId: 'legacy-client',
                         clientSecret: 'legacy-secret',
-                        requiredScopes: ['legacy:access'],
-                        resourceUri: 'http://localhost:3000'
+                        scope: 'openid legacy:access',
+                        audience: 'http://localhost:3000/'
                     }
-                }
+                },
+                silent: true
             })
             
             const routes = rootMiddleware.getRoutes()
@@ -247,12 +245,13 @@ describe( 'Community Server Integration', () => {
     describe( 'Error Handling Integration', () => {
         test( 'invalid route configuration fails gracefully', async () => {
             await expect( async () => {
-                await OAuthMiddleware.create({
-                    realmsByRoute: {
+                await McpAuthMiddleware.create({
+                    routes: {
                         '/invalid': {
                             // Missing required fields
                         }
-                    }
+                    },
+                    silent: true
                 })
             } ).rejects.toThrow()
         } )
@@ -267,27 +266,26 @@ describe( 'Community Server Integration', () => {
         test( 'middleware creation completes within reasonable time', async () => {
             const startTime = Date.now()
             
-            const perfMiddleware = await OAuthMiddleware.create({
-                realmsByRoute: {
+            const perfMiddleware = await McpAuthMiddleware.create({
+                routes: {
                     '/perf1': {
-                        providerName: 'auth0',
+                        authType: 'oauth21_auth0',
                         providerUrl: config.providerUrl,
-                        realm: 'perf-realm-1',
                         clientId: 'perf-client-1',
                         clientSecret: 'perf-secret-1',
-                        requiredScopes: ['perf:test'],
-                        resourceUri: 'http://localhost:3000/perf1'
+                        scope: 'openid perf:test',
+                        audience: 'http://localhost:3000/perf1'
                     },
                     '/perf2': {
-                        providerName: 'auth0',
+                        authType: 'oauth21_auth0',
                         providerUrl: config.providerUrl,
-                        realm: 'perf-realm-2', 
                         clientId: 'perf-client-2',
                         clientSecret: 'perf-secret-2',
-                        requiredScopes: ['perf:test'],
-                        resourceUri: 'http://localhost:3000/perf2'
+                        scope: 'openid perf:test',
+                        audience: 'http://localhost:3000/perf2'
                     }
-                }
+                },
+                silent: true
             })
             
             const creationTime = Date.now() - startTime

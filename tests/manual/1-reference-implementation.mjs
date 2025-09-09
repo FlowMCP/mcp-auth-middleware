@@ -1,12 +1,11 @@
 import { SchemaImporter } from 'schemaImporter'
 import { DeployAdvanced } from 'flowmcpServers'
-import { OAuthMiddleware } from '../../src/index.mjs'
+import { McpAuthMiddleware } from '../../src/index.mjs'
 import { TestUtils } from '../helpers/utils.mjs'
 
 
-// Load Auth0 credentials for both routes from .auth.env
 const envParams = TestUtils.getEnvParams( {
-    'envPath': './../../.auth.env',
+    'envPath': './../../../.auth.env',
     'selection': [
         [ 'firstRouteAuth0Domain',        'FIRST_ROUTE_AUTH0_DOMAIN'         ],
         [ 'firstRouteAuth0ClientId',      'FIRST_ROUTE_AUTH0_CLIENT_ID'      ],
@@ -25,12 +24,13 @@ const {
     secondRouteAuth0ClientSecret 
 } = envParams
 
+console.log( '>>>>', envParams)
 
 const config = {
     'silent': false, // Set to true to disable OAuth route output  
     'envPath': './../../.env',
     'rootUrl': 'http://localhost', // optional
-    'port': 3002, // optional
+    'port': 3000, // optional
     'routes': [
         {
             'routePath': '/first-route',
@@ -95,23 +95,24 @@ const config = {
     ]
 }
 
-const { routes, rootUrl, port, silent } = config
+const { routes: _routes, rootUrl, port, silent } = config
 
-const realmsByRoute = routes
+const routes = _routes
     .reduce( ( acc, route ) => {
         const { routePath, auth, protocol } = route
         if( !auth.enabled ) { return acc }
         const { providerName, providerUrl, realm, clientId, clientSecret, requiredScopes } = auth
         const resourceUri = `${rootUrl}:${port}${routePath}`  // Base URL without protocol suffix
-        acc[ routePath ] = { providerName, providerUrl, realm, clientId, clientSecret, requiredScopes, resourceUri }
+        const forceHttps = false  // Set to true for production environments
+        acc[ routePath ] = { providerName, providerUrl, realm, clientId, clientSecret, requiredScopes, forceHttps, resourceUri }
         return acc
     }, {} )
 
-const oauthMiddleware = await OAuthMiddleware
-    .create( { realmsByRoute, silent } )
+const oauthMiddleware = await McpAuthMiddleware
+    .create( { routes, silent } )
 
 
-const modifiedRoutes = routes
+const modifiedRoutes = _routes
     .map( ( route ) => { return { ...route, bearerToken: null } } )
 
 const objectOfSchemaArrays = await modifiedRoutes

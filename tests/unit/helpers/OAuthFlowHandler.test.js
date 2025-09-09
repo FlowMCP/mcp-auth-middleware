@@ -74,6 +74,7 @@ const testRealmsByRoute = {
         clientId: 'api-client',
         clientSecret: 'api-secret',
         requiredScopes: [ 'api:read', 'api:write' ],
+        forceHttps: true,
         resourceUri: 'http://localhost:3000/api/v1'
     },
     '/admin': {
@@ -82,6 +83,7 @@ const testRealmsByRoute = {
         clientId: 'admin-client',
         clientSecret: 'admin-secret',
         requiredScopes: [ 'admin:full' ],
+        forceHttps: true,
         resourceUri: 'http://localhost:3000/admin'
     }
 }
@@ -112,7 +114,7 @@ describe( 'OAuthFlowHandler', () => {
             const baseRedirectUri = 'http://localhost:3000'
             
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri,
                 silent: true
             } )
@@ -125,7 +127,7 @@ describe( 'OAuthFlowHandler', () => {
             const baseRedirectUri = 'http://localhost:3000'
             
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri,
                 silent: true
             } )
@@ -140,6 +142,7 @@ describe( 'OAuthFlowHandler', () => {
                 redirectUri: 'http://localhost:3000/api/v1/callback',
                 authFlow: 'authorization_code',
                 requiredScopes: [ 'api:read', 'api:write' ],
+                forceHttps: true,
                 resourceUri: 'http://localhost:3000/api/v1',
                 authorizationEndpoint: `${config.providerUrl}/authorize`,
                 tokenEndpoint: `${config.providerUrl}/oauth/token`,
@@ -151,7 +154,7 @@ describe( 'OAuthFlowHandler', () => {
             const baseRedirectUri = 'http://localhost:3000'
             
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri,
                 silent: true
             } )
@@ -166,7 +169,7 @@ describe( 'OAuthFlowHandler', () => {
             const baseRedirectUri = 'http://localhost:3000'
             
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri,
                 silent: true
             } )
@@ -186,7 +189,7 @@ describe( 'OAuthFlowHandler', () => {
             }
             
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: routesWithoutScopes,
+                routes: routesWithoutScopes,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -231,7 +234,7 @@ describe( 'OAuthFlowHandler', () => {
     describe( 'initiateAuthorizationCodeFlowForRoute', () => {
         beforeEach( () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -327,7 +330,7 @@ describe( 'OAuthFlowHandler', () => {
 
         beforeEach( () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -457,7 +460,7 @@ describe( 'OAuthFlowHandler', () => {
     describe( 'requestClientCredentialsForRoute', () => {
         beforeEach( () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -555,7 +558,7 @@ describe( 'OAuthFlowHandler', () => {
     describe( 'getAllRoutes', () => {
         test( 'returns all configured routes', () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -584,7 +587,7 @@ describe( 'OAuthFlowHandler', () => {
     describe( 'getRouteConfig', () => {
         beforeEach( () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -611,7 +614,7 @@ describe( 'OAuthFlowHandler', () => {
     describe( 'clearExpiredAuthRequests', () => {
         beforeEach( () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -641,7 +644,7 @@ describe( 'OAuthFlowHandler', () => {
     describe( 'Edge Cases', () => {
         test( 'handles malformed token response gracefully', async () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -667,7 +670,7 @@ describe( 'OAuthFlowHandler', () => {
 
         test( 'handles network errors during token exchange', async () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -684,7 +687,7 @@ describe( 'OAuthFlowHandler', () => {
 
         test( 'handles empty scopes array', () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -704,7 +707,7 @@ describe( 'OAuthFlowHandler', () => {
         
         test( 'successfully refreshes access token', async () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -743,7 +746,7 @@ describe( 'OAuthFlowHandler', () => {
 
         test( 'handles token refresh failure', async () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: true
             } )
@@ -785,7 +788,7 @@ describe( 'OAuthFlowHandler', () => {
         
         test( 'logs authorization URL when not silent', () => {
             handler = OAuthFlowHandler.createForMultiRealm( {
-                realmsByRoute: testRealmsByRoute,
+                routes: testRealmsByRoute,
                 baseRedirectUri: 'http://localhost:3000',
                 silent: false
             } )

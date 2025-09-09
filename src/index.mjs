@@ -1,8 +1,8 @@
-import { OAuthMiddleware as OAuthMiddlewareImpl } from './task/OAuthMiddleware.mjs'
+import { McpAuthMiddleware as McpAuthMiddlewareImpl } from './task/McpAuthMiddleware.mjs'
 import { Validation } from './task/Validation.mjs'
 
 
-class OAuthMiddleware {
+class McpAuthMiddleware {
     #impl
 
 
@@ -11,14 +11,14 @@ class OAuthMiddleware {
     }
 
 
-    static async create( { realmsByRoute, silent = false } ) {
-        const { status, messages } = Validation.validationCreate( { realmsByRoute, silent } )
+    static async create( { routes, silent = false } ) {
+        const { status, messages } = Validation.validationCreate( { routes, silent } )
         if( !status ) {
             throw new Error( `Validation failed: ${messages.join( ', ' )}` )
         }
 
-        const impl = await OAuthMiddlewareImpl.create( { realmsByRoute, silent } )
-        return new OAuthMiddleware( impl )
+        const impl = await McpAuthMiddlewareImpl.create( { routes, silent } )
+        return new McpAuthMiddleware( impl )
     }
 
 
@@ -58,4 +58,4 @@ class OAuthMiddleware {
 }
 
 
-export { OAuthMiddleware }
+export { McpAuthMiddleware }
