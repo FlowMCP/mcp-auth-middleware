@@ -14,7 +14,10 @@
         "test:performance": "NODE_OPTIONS='--experimental-vm-modules' jest tests/performance",
         "test:coverage:src": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage --collectCoverageFrom='src/**/*.mjs'",
         "test:file": "NODE_OPTIONS='--experimental-vm-modules' jest",
-        "start:demo": "node tests/manual/1-reference-implementation.mjs"
+        "start:demo": "node tests/manual/1-reference-implementation-flowmcp.mjs",
+        "start:mcp": "node tests/manual/0-reference-implementation-mcp.mjs",
+        "start:flowmcp": "node tests/manual/1-reference-implementation-flowmcp.mjs",
+        "inspect": "mcp-inspector"
     },
     "keywords": [
         "oauth",
@@ -39,9 +42,10 @@
     },
     "devDependencies": {
         "@jest/globals": "^29.7.0",
-        "flowmcpServers": "github:flowmcp/flowMCP-servers#04ec25b8aa32363035afdae1da2e5a976c425f6f",
+        "flowmcpServers": "github:flowmcp/flowMCP-servers#e5b13742c264ccb170077d2c9b0616da974a63b6",
         "jest": "^29.7.0",
         "schemaimporter": "github:flowmcp/flowMCP-schemas#3969e3b2ddae3d5d3d1c8bb8d4131b00d854af4d",
+        "@modelcontextprotocol/inspector": "^0.16.6",
         "supertest": "^7.1.4"
     },
     "jest": {

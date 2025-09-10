@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken'
 import { AuthTypeFactory } from '../core/AuthTypeFactory.mjs'
 import { DynamicClientRegistration } from '../helpers/DynamicClientRegistration.mjs'
 import { Logger } from '../helpers/Logger.mjs'
+import { McpOAuthDiscoveryHandler } from '../handlers/McpOAuthDiscoveryHandler.mjs'
 import { OAuthFlowHandler } from '../helpers/OAuthFlowHandler.mjs'
 import { TokenValidator } from '../helpers/TokenValidator.mjs'
 import { Validation } from './Validation.mjs'
@@ -15,6 +16,7 @@ class McpAuthMiddleware {
     #routeClients
     #router
     #silent
+    #discoveryHandler
 
 
     constructor( { silent = false } ) {
@@ -22,6 +24,7 @@ class McpAuthMiddleware {
         this.#routeConfigs = new Map()
         this.#routeClients = new Map()
         this.#router = express.Router()
+        this.#discoveryHandler = null
     }
 
 
@@ -109,6 +112,12 @@ class McpAuthMiddleware {
             tokenValidator,
             oauthFlowHandler
         } )
+
+        // Create MCP Discovery Handler for .well-known endpoints
+        this.#discoveryHandler = McpOAuthDiscoveryHandler.create( { 
+            routes: validatedRoutes, 
+            silent: this.#silent 
+        } )
         
         if( !this.#silent ) {
             this.#displayRoutesSummary()
@@ -192,17 +201,23 @@ class McpAuthMiddleware {
 
 
     #setupRouter() {
-        // Setup routes for each configured realm
+        // Setup global well-known endpoints FIRST
+        this.#setupGlobalWellKnown()
+
+        // Setup MCP-compliant discovery endpoints BEFORE protected routes
+        this.#setupMcpDiscoveryEndpoints()
+
+        // Setup routes for each configured realm (including protected middleware)
         this.#routeConfigs.forEach( ( config, routePath ) => {
             this.#setupRouteEndpoints( { routePath, config } )
         } )
-        
-        // Setup global well-known endpoints
-        this.#setupGlobalWellKnown()
     }
 
 
     #setupRouteEndpoints( { routePath, config } ) {
+        // Check if this is an OAuth-based route
+        const isOAuthRoute = config.authType && config.authType.includes( 'oauth' )
+        
         // Create HTTPS middleware for this route (defaults to true for OAuth 2.1 compliance)
         const forceHttps = config.forceHttps !== false // Default to true
         const httpsMiddleware = forceHttps 
@@ -214,30 +229,33 @@ class McpAuthMiddleware {
             }
             : ( req, res, next ) => next()
         
-        // OAuth login endpoint per route
-        this.#router.get( `${routePath}/auth/login`, httpsMiddleware, ( req, res ) => {
-            this.#handleLogin( { req, res, routePath } )
-        } )
+        // Only register OAuth endpoints for OAuth-based authTypes
+        if( isOAuthRoute ) {
+            // OAuth login endpoint per route
+            this.#router.get( `${routePath}/auth/login`, httpsMiddleware, ( req, res ) => {
+                this.#handleLogin( { req, res, routePath } )
+            } )
+            
+            // OAuth callback endpoint per route (GET and POST for different flows)
+            this.#router.get( `${routePath}/auth/callback`, httpsMiddleware, async ( req, res ) => {
+                await this.#handleCallback( { req, res, routePath } )
+            } )
+            this.#router.post( `${routePath}/auth/callback`, httpsMiddleware, async ( req, res ) => {
+                await this.#handleCallback( { req, res, routePath } )
+            } )
+            
+            // Route-specific well-known endpoints (RFC 9728)
+            this.#router.get( `/.well-known/oauth-protected-resource${routePath}`, ( req, res ) => {
+                this.#handleProtectedResourceMetadata( { req, res, routePath } )
+            } )
+            
+            // Route discovery endpoint
+            this.#router.get( `${routePath}/discovery`, ( req, res ) => {
+                this.#handleRouteDiscovery( { req, res, routePath } )
+            } )
+        }
         
-        // OAuth callback endpoint per route (GET and POST for different flows)
-        this.#router.get( `${routePath}/auth/callback`, httpsMiddleware, async ( req, res ) => {
-            await this.#handleCallback( { req, res, routePath } )
-        } )
-        this.#router.post( `${routePath}/auth/callback`, httpsMiddleware, async ( req, res ) => {
-            await this.#handleCallback( { req, res, routePath } )
-        } )
-        
-        // Route-specific well-known endpoints (RFC 9728)
-        this.#router.get( `/.well-known/oauth-protected-resource${routePath}`, ( req, res ) => {
-            this.#handleProtectedResourceMetadata( { req, res, routePath } )
-        } )
-        
-        // Route discovery endpoint
-        this.#router.get( `${routePath}/discovery`, ( req, res ) => {
-            this.#handleRouteDiscovery( { req, res, routePath } )
-        } )
-        
-        // Protected middleware for this route
+        // Protected middleware for this route (applies to all authTypes)
         this.#router.use( routePath, ( req, res, next ) => {
             this.#handleProtectedRequest( { req, res, next, routePath } )
         } )
@@ -254,6 +272,60 @@ class McpAuthMiddleware {
         this.#router.get( '/.well-known/jwks.json', async ( req, res ) => {
             await this.#handleGlobalJwks( { req, res } )
         } )
+    }
+
+
+    #setupMcpDiscoveryEndpoints() {
+        if( this.#discoveryHandler ) {
+            // Extract the routes and mount them on our router
+            const routePaths = Object.keys( this.#discoveryHandler.getRoutes() )
+            
+            routePaths.forEach( ( routePath ) => {
+                const authServerPath = `${routePath}/.well-known/oauth-authorization-server`
+                const protectedResourcePath = `${routePath}/.well-known/oauth-protected-resource`
+
+                // Register discovery endpoints BEFORE the protected route middleware
+                // These must be publicly accessible per RFC 8414/9728
+                this.#router.get( authServerPath, ( req, res ) => {
+                    const { success, metadata, error } = this.#discoveryHandler.generateAuthorizationServerMetadata( { routePath } )
+                    
+                    if( !success ) {
+                        return res.status( 404 ).json( { error } )
+                    }
+
+                    res.set( {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'public, max-age=3600',
+                        'Access-Control-Allow-Origin': '*'
+                    } )
+                    
+                    res.json( metadata )
+                } )
+
+                this.#router.get( protectedResourcePath, ( req, res ) => {
+                    const { success, metadata, error } = this.#discoveryHandler.generateProtectedResourceMetadata( { routePath } )
+                    
+                    if( !success ) {
+                        return res.status( 404 ).json( { error } )
+                    }
+
+                    res.set( {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'public, max-age=3600',
+                        'Access-Control-Allow-Origin': '*'
+                    } )
+                    
+                    res.json( metadata )
+                } )
+            } )
+
+            if( !this.#silent ) {
+                Logger.info( { 
+                    silent: this.#silent, 
+                    message: `MCP Discovery endpoints registered for ${routePaths.length} routes` 
+                } )
+            }
+        }
     }
 
 
@@ -634,11 +706,9 @@ class McpAuthMiddleware {
 
 
     #sendUnauthorized( { res, routePath, reason } ) {
+        const config = this.#routeConfigs.get( routePath )
+        const isOAuthRoute = config.authType && config.authType.includes( 'oauth' )
         const baseUrl = `${res.req.protocol}://${res.req.get( 'host' )}`
-        const prmUrl = `${baseUrl}/.well-known/oauth-protected-resource${routePath}`
-        
-        // RFC 9728 compliant 401 response
-        res.set( 'WWW-Authenticate', `Bearer realm="${routePath}", error="invalid_token", error_description="${reason}", resource_metadata="${prmUrl}"` )
         
         // Map internal error codes to user-friendly messages
         let message = reason
@@ -652,14 +722,32 @@ class McpAuthMiddleware {
             message = 'Bearer token required'
         }
 
-        res.status( 401 ).json( {
-            error: 'Unauthorized',
-            message: message,
-            error_description: reason,
-            route: routePath,
-            protected_resource_metadata: prmUrl,
-            login_url: `${baseUrl}${routePath}/auth/login`
-        } )
+        if( isOAuthRoute ) {
+            // OAuth-specific 401 response with metadata
+            const prmUrl = `${baseUrl}/.well-known/oauth-protected-resource${routePath}`
+            
+            // RFC 9728 compliant 401 response
+            res.set( 'WWW-Authenticate', `Bearer realm="${routePath}", error="invalid_token", error_description="${reason}", resource_metadata="${prmUrl}"` )
+            
+            res.status( 401 ).json( {
+                error: 'Unauthorized',
+                message: message,
+                error_description: reason,
+                route: routePath,
+                protected_resource_metadata: prmUrl,
+                login_url: `${baseUrl}${routePath}/auth/login`
+            } )
+        } else {
+            // Simple Bearer token 401 response for non-OAuth routes
+            res.set( 'WWW-Authenticate', `Bearer realm="${routePath}", error="invalid_token", error_description="${reason}"` )
+            
+            res.status( 401 ).json( {
+                error: 'Unauthorized',
+                message: message,
+                error_description: reason,
+                route: routePath
+            } )
+        }
     }
 
 
@@ -728,44 +816,62 @@ class McpAuthMiddleware {
             config.resourceUri.replace( routePath, '' ).replace( /\/$/, '' ) : 
             'http://localhost:3000'
         
+        const isOAuthRoute = config.authType && config.authType.includes( 'oauth' )
+        
         this.#log( `📍 Route ${index}: ${routePath}` )
         this.#log( `   ├─ Realm:        ${config.realm}` )
-        this.#log( `   ├─ Provider:     ${config.providerUrl}` )
-        this.#log( `   ├─ Client ID:    ${config.clientId}` )
-        this.#log( `   ├─ Auth Flow:    ${config.authFlow}` )
         
-        // Display required scopes
-        if( config.requiredScopes && config.requiredScopes.length > 0 ) {
-            const scopeList = config.requiredScopes.join( ', ' )
-            this.#log( `   ├─ Scopes:       ${scopeList}` )
-        }
-        
-        // Display required roles
-        if( config.requiredRoles && config.requiredRoles.length > 0 ) {
-            const roleList = config.requiredRoles.join( ', ' )
-            this.#log( `   ├─ Roles:        ${roleList}` )
-        }
-        
-        // Display security settings
-        const securityFlags = []
-        if( config.allowAnonymous ) securityFlags.push( '🟡 Anonymous allowed' )
-        if( config.authFlow === 'authorization-code' ) securityFlags.push( '🟢 PKCE required' )
-        
-        if( securityFlags.length > 0 ) {
+        if( isOAuthRoute ) {
+            // OAuth-specific details
+            this.#log( `   ├─ Provider:     ${config.providerUrl}` )
+            this.#log( `   ├─ Client ID:    ${config.clientId}` )
+            this.#log( `   ├─ Auth Flow:    ${config.authFlow}` )
+            
+            // Display required scopes
+            if( config.requiredScopes && config.requiredScopes.length > 0 ) {
+                const scopeList = config.requiredScopes.join( ', ' )
+                this.#log( `   ├─ Scopes:       ${scopeList}` )
+            }
+            
+            // Display security settings
+            const securityFlags = []
+            if( config.allowAnonymous ) securityFlags.push( '🟡 Anonymous allowed' )
+            if( config.authFlow === 'authorization-code' ) securityFlags.push( '🟢 PKCE required' )
+            
+            if( securityFlags.length > 0 ) {
+                this.#log( `   ├─ Security:     ${securityFlags.join( ', ' )}` )
+            }
+            
+            // Display OAuth endpoints
+            this.#log( `   ├─ Endpoints:` )
+            this.#log( `   │  ├─ Login:     ${baseUrl}${routePath}/auth/login` )
+            this.#log( `   │  ├─ Callback:  ${baseUrl}${routePath}/callback` )
+            this.#log( `   │  ├─ Discovery: ${baseUrl}${routePath}/discovery` )
+            this.#log( `   │  └─ Metadata:  ${baseUrl}/.well-known/oauth-protected-resource${routePath}` )
+            this.#log( `   └─ Auth0 Setup:` )
+            this.#log( `      ├─ Domain:                   ${config.providerUrl}` )
+            this.#log( `      ├─ Client ID:                ${config.clientId}` )
+            this.#log( `      ├─ Allowed Callback URLs:    ${baseUrl}${routePath}/auth/callback` )
+            this.#log( `      └─ Allowed Web Origins:      ${baseUrl}${routePath}` )
+        } else {
+            // StaticBearer or other non-OAuth authentication
+            this.#log( `   ├─ Auth Type:    ${config.authType}` )
+            this.#log( `   ├─ Token:        Bearer token required in Authorization header` )
+            
+            // Display required roles if any
+            if( config.requiredRoles && config.requiredRoles.length > 0 ) {
+                const roleList = config.requiredRoles.join( ', ' )
+                this.#log( `   ├─ Roles:        ${roleList}` )
+            }
+            
+            // Simple security info
+            const securityFlags = []
+            if( config.allowAnonymous ) securityFlags.push( '🟡 Anonymous allowed' )
+            securityFlags.push( '🟢 Bearer token authentication' )
+            
             this.#log( `   ├─ Security:     ${securityFlags.join( ', ' )}` )
+            this.#log( `   └─ Usage:        Send requests with "Authorization: Bearer <token>" header` )
         }
-        
-        // Display endpoints with full URLs for clickability
-        this.#log( `   ├─ Endpoints:` )
-        this.#log( `   │  ├─ Login:     ${baseUrl}${routePath}/auth/login` )
-        this.#log( `   │  ├─ Callback:  ${baseUrl}${routePath}/callback` )
-        this.#log( `   │  ├─ Discovery: ${baseUrl}${routePath}/discovery` )
-        this.#log( `   │  └─ Metadata:  ${baseUrl}/.well-known/oauth-protected-resource${routePath}` )
-        this.#log( `   └─ Auth0 Setup:` )
-        this.#log( `      ├─ Domain:                   ${config.providerUrl}` )
-        this.#log( `      ├─ Client ID:                ${config.clientId}` )
-        this.#log( `      ├─ Allowed Callback URLs:    ${baseUrl}${routePath}/auth/callback` )
-        this.#log( `      └─ Allowed Web Origins:      ${baseUrl}${routePath}` )
         
         if( index < this.#routeConfigs.size ) {
             this.#log( '' )

@@ -3,13 +3,13 @@ import { McpAuthMiddleware } from '../../src/index.mjs'
 import { config } from './config.mjs'
 
 
-const { routeConfigs } = config
+const { routeConfigs, silent } = config
 
 const objectOfMcpAuthRoutes = routeConfigs
-    .reduce( ( acc, { routePath, auth } ) => {
+    .reduce( ( acc, { routePath, auth, authType } ) => {
         if( !auth.enabled ) { return acc }
         delete auth.enabled
-        acc[ routePath ] = { ...auth }
+        acc[ routePath ] = { authType, ...auth }
         return acc
     }, {} )
 
@@ -25,7 +25,13 @@ const objectOfSchemaArrays = await routeConfigs
     }, Promise.resolve( {} ) )
 
 const arrayOfRoutes = routeConfigs
-    .map( ( { routePath, protocol } ) => { return { routePath, protocol } } )
+    .map( ( { routePath, protocol, bearerIsPublic } ) => { 
+        return { 
+            routePath, 
+            protocol, 
+            bearerToken: bearerIsPublic === false ? 'required' : null 
+        } 
+    } )
 
 const { app, mcps, events, argv, server } = DeployAdvanced
     .init( { silent } )
