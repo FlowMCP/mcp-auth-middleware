@@ -4,15 +4,25 @@
 
 Express-compatible multi-realm authentication middleware for securing MCP server endpoints with OAuth 2.1 and Bearer token support.
 
-## Table of Contents
+## Table of Contents 
 
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [AuthTypes](#authtypes)
-- [Configuration](#configuration)
-- [API Reference](#api-reference)
-- [Testing](#testing)
-- [License](#license)
+- [MCP OAuth Middleware](#mcp-oauth-middleware)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Quick Start](#quick-start)
+  - [AuthTypes](#authtypes)
+    - [oauth21\_auth0](#oauth21_auth0)
+    - [staticBearer](#staticbearer)
+  - [Configuration](#configuration)
+    - [Multi-Route Setup](#multi-route-setup)
+  - [API Reference](#api-reference)
+    - [.create({ routes, silent })](#create-routes-silent-)
+    - [.router()](#router)
+    - [.getRoutes()](#getroutes)
+    - [.getRouteConfig(route)](#getrouteconfigroute)
+    - [.getRealms()](#getrealms)
+  - [Testing](#testing)
+  - [License](#license)
 
 ## Installation
 
