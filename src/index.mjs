@@ -27,23 +27,23 @@ class McpAuthMiddleware {
     }
 
 
-    getRouteConfig( routePath ) {
+    getRouteConfig( { routePath } ) {
         const { status, messages } = Validation.validationGetRouteConfig( { routePath } )
         if( !status ) {
             throw new Error( `Validation failed: ${messages.join( ', ' )}` )
         }
 
-        return this.#impl.getRouteConfig( routePath )
+        return this.#impl.getRouteConfig( { routePath } )
     }
 
 
-    getRouteClient( routePath ) {
+    getRouteClient( { routePath } ) {
         const { status, messages } = Validation.validationGetRouteConfig( { routePath } )
         if( !status ) {
             throw new Error( `Validation failed: ${messages.join( ', ' )}` )
         }
 
-        return this.#impl.getRouteClient( routePath )
+        return this.#impl.getRouteClient( { routePath } )
     }
 
 

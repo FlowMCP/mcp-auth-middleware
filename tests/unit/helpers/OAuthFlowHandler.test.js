@@ -131,7 +131,7 @@ describe( 'OAuthFlowHandler', () => {
                 silent: true
             } )
             
-            const apiConfig = handler.getRouteConfig( { route: '/api/v1' } )
+            const apiConfig = handler.getRouteConfig( { routePath: '/api/v1' } )
             
             expect( apiConfig ).toEqual( expect.objectContaining( {
                 providerUrl: config.providerUrl,
@@ -158,7 +158,7 @@ describe( 'OAuthFlowHandler', () => {
                 silent: true
             } )
             
-            const adminConfig = handler.getRouteConfig( { route: '/admin' } )
+            const adminConfig = handler.getRouteConfig( { routePath: '/admin' } )
             
             expect( adminConfig.authorizationEndpoint ).toBe( 'https://another-domain.auth0.com/authorize' )
             expect( adminConfig.tokenEndpoint ).toBe( 'https://another-domain.auth0.com/oauth/token' )
@@ -173,7 +173,7 @@ describe( 'OAuthFlowHandler', () => {
                 silent: true
             } )
             
-            const apiConfig = handler.getRouteConfig( { route: '/api/v1' } )
+            const apiConfig = handler.getRouteConfig( { routePath: '/api/v1' } )
             expect( apiConfig.authFlow ).toBe( 'authorization_code' )
         } )
 
@@ -193,7 +193,7 @@ describe( 'OAuthFlowHandler', () => {
                 silent: true
             } )
             
-            const testConfig = handler.getRouteConfig( { route: '/test' } )
+            const testConfig = handler.getRouteConfig( { routePath: '/test' } )
             expect( testConfig.requiredScopes ).toEqual( [] )
         } )
     } )
@@ -223,7 +223,7 @@ describe( 'OAuthFlowHandler', () => {
                 silent: true
             } )
             
-            const defaultConfig = handler.getRouteConfig( { route: 'default' } )
+            const defaultConfig = handler.getRouteConfig( { routePath: 'default' } )
             
             expect( defaultConfig.authorizationEndpoint ).toBe( `${config.providerUrl}/authorize` )
             expect( defaultConfig.tokenEndpoint ).toBe( `${config.providerUrl}/oauth/token` )
@@ -241,13 +241,13 @@ describe( 'OAuthFlowHandler', () => {
 
         test( 'initiates authorization flow with default scopes', () => {
             const result = handler.initiateAuthorizationCodeFlowForRoute( {
-                route: '/api/v1'
+                routePath: '/api/v1'
             } )
             
             expect( result ).toEqual( expect.objectContaining( {
                 authorizationUrl: expect.stringContaining( `${config.providerUrl}/authorize` ),
                 state: expect.any( String ),
-                route: '/api/v1'
+                routePath: '/api/v1'
             } ) )
             
             expect( mockGeneratePKCEPair ).toHaveBeenCalled()
@@ -257,7 +257,7 @@ describe( 'OAuthFlowHandler', () => {
             const customScopes = [ 'read:profile', 'write:data' ]
             
             const result = handler.initiateAuthorizationCodeFlowForRoute( {
-                route: '/api/v1',
+                routePath: '/api/v1',
                 scopes: customScopes
             } )
             
@@ -268,7 +268,7 @@ describe( 'OAuthFlowHandler', () => {
             const resourceIndicators = [ 'https://api.example.com' ]
             
             const result = handler.initiateAuthorizationCodeFlowForRoute( {
-                route: '/api/v1',
+                routePath: '/api/v1',
                 resourceIndicators
             } )
             
@@ -277,7 +277,7 @@ describe( 'OAuthFlowHandler', () => {
 
         test( 'includes PKCE parameters in authorization URL', () => {
             const result = handler.initiateAuthorizationCodeFlowForRoute( {
-                route: '/api/v1'
+                routePath: '/api/v1'
             } )
             
             expect( result.authorizationUrl ).toContain( 'code_challenge=test-code-challenge-456' )
@@ -287,14 +287,14 @@ describe( 'OAuthFlowHandler', () => {
         test( 'throws error for invalid route', () => {
             expect( () => {
                 handler.initiateAuthorizationCodeFlowForRoute( {
-                    route: '/nonexistent'
+                    routePath: '/nonexistent'
                 } )
             } ).toThrow( 'No configuration found for route: /nonexistent' )
         } )
 
         test( 'stores authorization request for callback', () => {
             const result = handler.initiateAuthorizationCodeFlowForRoute( {
-                route: '/api/v1'
+                routePath: '/api/v1'
             } )
             
             // Verify that the state can be used to retrieve the request
@@ -306,7 +306,7 @@ describe( 'OAuthFlowHandler', () => {
             const additionalScopes = [ 'custom:scope' ]
             
             const result = handler.initiateAuthorizationCodeFlowForRoute( {
-                route: '/api/v1',
+                routePath: '/api/v1',
                 scopes: additionalScopes
             } )
             
@@ -317,7 +317,7 @@ describe( 'OAuthFlowHandler', () => {
 
         test( 'includes resource parameter when resourceUri is configured', () => {
             const result = handler.initiateAuthorizationCodeFlowForRoute( {
-                route: '/api/v1'
+                routePath: '/api/v1'
             } )
             
             expect( result.authorizationUrl ).toContain( 'resource=http%3A%2F%2Flocalhost%3A3000%2Fapi%2Fv1' )
@@ -336,7 +336,7 @@ describe( 'OAuthFlowHandler', () => {
             
             // Initiate an auth flow to get a valid state
             const authResult = handler.initiateAuthorizationCodeFlowForRoute( {
-                route: '/api/v1'
+                routePath: '/api/v1'
             } )
             authState = authResult.state
         } )
@@ -365,7 +365,7 @@ describe( 'OAuthFlowHandler', () => {
                 refresh_token: 'test-refresh-token',
                 id_token: 'test-id-token'
             } ) )
-            expect( result.route ).toBe( '/api/v1' )
+            expect( result.routePath ).toBe( '/api/v1' )
         } )
 
         test( 'fails with invalid state parameter', async () => {
@@ -476,7 +476,7 @@ describe( 'OAuthFlowHandler', () => {
             } )
             
             const result = await handler.requestClientCredentialsForRoute( {
-                route: '/api/v1',
+                routePath: '/api/v1',
                 scopes: [ 'api:read' ]
             } )
             
@@ -494,7 +494,7 @@ describe( 'OAuthFlowHandler', () => {
             } )
             
             await handler.requestClientCredentialsForRoute( {
-                route: '/api/v1'
+                routePath: '/api/v1'
             } )
             
             const fetchCall = mockFetch.mock.calls[0]
@@ -514,7 +514,7 @@ describe( 'OAuthFlowHandler', () => {
             const customScopes = [ 'read:data', 'write:data' ]
             
             await handler.requestClientCredentialsForRoute( {
-                route: '/api/v1',
+                routePath: '/api/v1',
                 scopes: customScopes
             } )
             
@@ -526,7 +526,7 @@ describe( 'OAuthFlowHandler', () => {
 
         test( 'throws error for invalid route', async () => {
             await expect( handler.requestClientCredentialsForRoute( {
-                route: '/nonexistent'
+                routePath: '/nonexistent'
             } ) ).rejects.toThrow( 'No configuration found for route: /nonexistent' )
         } )
     } )
@@ -549,7 +549,7 @@ describe( 'OAuthFlowHandler', () => {
             expect( result ).toEqual( expect.objectContaining( {
                 authorizationUrl: expect.stringContaining( config.providerUrl ),
                 state: expect.any( String ),
-                route: 'default'
+                routePath: 'default'
             } ) )
         } )
     } )
@@ -593,7 +593,7 @@ describe( 'OAuthFlowHandler', () => {
         } )
 
         test( 'returns configuration for valid route', () => {
-            const routeConfig = handler.getRouteConfig( { route: '/api/v1' } )
+            const routeConfig = handler.getRouteConfig( { routePath: '/api/v1' } )
             
             expect( routeConfig ).toEqual( expect.objectContaining( {
                 providerUrl: config.providerUrl,
@@ -605,7 +605,7 @@ describe( 'OAuthFlowHandler', () => {
 
         test( 'throws error for invalid route', () => {
             expect( () => {
-                handler.getRouteConfig( { route: '/nonexistent' } )
+                handler.getRouteConfig( { routePath: '/nonexistent' } )
             } ).toThrow( 'No configuration found for route: /nonexistent' )
         } )
     } )
@@ -621,8 +621,8 @@ describe( 'OAuthFlowHandler', () => {
 
         test( 'removes expired authorization requests', () => {
             // Create some auth requests
-            const result1 = handler.initiateAuthorizationCodeFlowForRoute( { route: '/api/v1' } )
-            const result2 = handler.initiateAuthorizationCodeFlowForRoute( { route: '/admin' } )
+            const result1 = handler.initiateAuthorizationCodeFlowForRoute( { routePath: '/api/v1' } )
+            const result2 = handler.initiateAuthorizationCodeFlowForRoute( { routePath: '/admin' } )
             
             // Method doesn't return count, just verify it doesn't throw
             expect( () => handler.clearExpiredAuthRequests() ).not.toThrow()
@@ -630,13 +630,13 @@ describe( 'OAuthFlowHandler', () => {
 
         test( 'does not remove recent authorization requests', () => {
             // Create a recent auth request
-            const result = handler.initiateAuthorizationCodeFlowForRoute( { route: '/api/v1' } )
+            const result = handler.initiateAuthorizationCodeFlowForRoute( { routePath: '/api/v1' } )
             
             // Clear expired (should not remove recent ones)
             handler.clearExpiredAuthRequests()
             
             // Verify recent request still works
-            expect( () => handler.getRouteConfig( { route: '/api/v1' } ) ).not.toThrow()
+            expect( () => handler.getRouteConfig( { routePath: '/api/v1' } ) ).not.toThrow()
         } )
     } )
 
@@ -648,7 +648,7 @@ describe( 'OAuthFlowHandler', () => {
                 silent: true
             } )
             
-            const authResult = handler.initiateAuthorizationCodeFlowForRoute( { route: '/api/v1' } )
+            const authResult = handler.initiateAuthorizationCodeFlowForRoute( { routePath: '/api/v1' } )
             
             fetch.mockResolvedValueOnce( {
                 ok: true,
@@ -674,7 +674,7 @@ describe( 'OAuthFlowHandler', () => {
                 silent: true
             } )
             
-            const authResult = handler.initiateAuthorizationCodeFlowForRoute( { route: '/api/v1' } )
+            const authResult = handler.initiateAuthorizationCodeFlowForRoute( { routePath: '/api/v1' } )
             
             fetch.mockRejectedValueOnce( new Error( 'Network error' ) )
             
@@ -692,7 +692,7 @@ describe( 'OAuthFlowHandler', () => {
             } )
             
             const result = handler.initiateAuthorizationCodeFlowForRoute( {
-                route: '/api/v1',
+                routePath: '/api/v1',
                 scopes: []
             } )
             
@@ -723,14 +723,14 @@ describe( 'OAuthFlowHandler', () => {
 
             const result = await handler.refreshAccessTokenForRoute( {
                 refreshToken: 'old-refresh-token',
-                route: '/api/v1',
+                routePath: '/api/v1',
                 resourceIndicators: [ 'https://api.example.com' ]
             } )
 
             expect( result.success ).toBe( true )
             expect( result.tokens.access_token ).toBe( 'new-access-token' )
             expect( result.tokens.refresh_token ).toBe( 'new-refresh-token' )
-            expect( result.route ).toBe( '/api/v1' )
+            expect( result.routePath ).toBe( '/api/v1' )
 
             expect( fetch ).toHaveBeenCalledWith(
                 `${testRealmsByRoute['/api/v1'].providerUrl}/oauth/token`,
@@ -760,12 +760,12 @@ describe( 'OAuthFlowHandler', () => {
 
             const result = await handler.refreshAccessTokenForRoute( {
                 refreshToken: 'expired-refresh-token',
-                route: '/api/v1'
+                routePath: '/api/v1'
             } )
 
             expect( result.success ).toBe( false )
             expect( result.error ).toBe( 'Refresh token expired' )
-            expect( result.route ).toBe( '/api/v1' )
+            expect( result.routePath ).toBe( '/api/v1' )
         } )
 
     } )
@@ -795,7 +795,7 @@ describe( 'OAuthFlowHandler', () => {
             const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation( () => {} )
 
             handler.initiateAuthorizationCodeFlowForRoute( {
-                route: '/api/v1',
+                routePath: '/api/v1',
                 scopes: [ 'read' ]
             } )
 

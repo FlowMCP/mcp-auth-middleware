@@ -124,8 +124,8 @@ describe( 'Community Server Integration', () => {
     
     describe( 'Multi-Realm Route Protection', () => {
         test( 'different routes can use different realms', () => {
-            const mcpConfig = middleware.getRouteConfig( '/mcp' )
-            const apiConfig = middleware.getRouteConfig( '/api' )
+            const mcpConfig = middleware.getRouteConfig( { routePath: '/mcp' } )
+            const apiConfig = middleware.getRouteConfig( { routePath: '/api' } )
             
             expect( mcpConfig ).toBeDefined()
             expect( apiConfig ).toBeDefined()
@@ -205,7 +205,7 @@ describe( 'Community Server Integration', () => {
             const routes = rootMiddleware.getRoutes()
             expect( routes ).toContain( '/' )
             
-            const rootConfig = rootMiddleware.getRouteConfig( '/' )
+            const rootConfig = rootMiddleware.getRouteConfig( { routePath: '/' } )
             expect( rootConfig.realm ).toBe( 'legacy-realm' )
         } )
     } )
@@ -229,8 +229,8 @@ describe( 'Community Server Integration', () => {
         } )
         
         test( 'Protected Resource metadata is route-specific', () => {
-            const mcpConfig = middleware.getRouteConfig( '/mcp' )
-            const apiConfig = middleware.getRouteConfig( '/api' )
+            const mcpConfig = middleware.getRouteConfig( { routePath: '/mcp' } )
+            const apiConfig = middleware.getRouteConfig( { routePath: '/api' } )
             
             // Each route should have its own resource metadata
             expect( mcpConfig.resourceUri ).toBe( 'http://localhost:3000/mcp' )
@@ -257,7 +257,7 @@ describe( 'Community Server Integration', () => {
         } )
         
         test( 'missing route configuration returns undefined', () => {
-            const nonExistentConfig = middleware.getRouteConfig( '/nonexistent' )
+            const nonExistentConfig = middleware.getRouteConfig( { routePath: '/nonexistent' } )
             expect( nonExistentConfig ).toBeUndefined()
         } )
     } )

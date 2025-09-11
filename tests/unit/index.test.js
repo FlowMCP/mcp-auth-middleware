@@ -109,7 +109,7 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
                 providerUrl: 'https://auth.example.com'
             } )
 
-            const config = middleware.getRouteConfig( '/api' )
+            const config = middleware.getRouteConfig( { routePath: '/api' } )
 
             expect( config ).toEqual( { providerUrl: 'https://auth.example.com' } )
             expect( mockValidation.validationGetRouteConfig ).toHaveBeenCalledWith( { routePath: '/api' } )
@@ -123,7 +123,7 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
             } )
 
             expect( () => {
-                middleware.getRouteConfig( 'invalid-route' )
+                middleware.getRouteConfig( { routePath: 'invalid-route' } )
             } ).toThrow( 'Validation failed: Invalid route path' )
         } )
 
@@ -154,7 +154,7 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
                 provider: 'auth0'
             } )
 
-            const client = middleware.getRouteClient( '/api' )
+            const client = middleware.getRouteClient( { routePath: '/api' } )
 
             expect( client ).toEqual( { provider: 'auth0' } )
             expect( mockValidation.validationGetRouteConfig ).toHaveBeenCalledWith( { routePath: '/api' } )
@@ -168,7 +168,7 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
             } )
 
             expect( () => {
-                middleware.getRouteClient( '/nonexistent' )
+                middleware.getRouteClient( { routePath: '/nonexistent' } )
             } ).toThrow( 'Validation failed: Route not found' )
         } )
 

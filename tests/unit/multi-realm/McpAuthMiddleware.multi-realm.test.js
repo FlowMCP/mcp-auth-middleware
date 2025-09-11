@@ -221,7 +221,7 @@ describe( 'McpAuthMiddleware - Multi-Realm Architecture', () => {
         } )
 
         it( 'returns route-specific configuration', () => {
-            const apiConfig = middleware.getRouteConfig( '/api' )
+            const apiConfig = middleware.getRouteConfig( { routePath: '/api' } )
             
             expect( apiConfig ).toBeDefined()
             expect( apiConfig.authType ).toBe( 'oauth21_auth0' )
@@ -238,7 +238,7 @@ describe( 'McpAuthMiddleware - Multi-Realm Architecture', () => {
         } )
 
         it( 'auto-generates OAuth URLs for routes', () => {
-            const routeConfig = middleware.getRouteConfig( '/api' )
+            const routeConfig = middleware.getRouteConfig( { routePath: '/api' } )
             
             expect( routeConfig.authType ).toBe( 'oauth21_auth0' )
             expect( routeConfig.providerUrl ).toBe( config.providerUrl )
@@ -286,7 +286,7 @@ describe( 'McpAuthMiddleware - Multi-Realm Architecture', () => {
             const routes = middleware.getRoutes()
             
             routes.forEach( route => {
-                const config = middleware.getRouteConfig( route )
+                const config = middleware.getRouteConfig( { routePath: route } )
                 expect( config ).toHaveProperty( 'authType' )
                 expect( config ).toHaveProperty( 'scope' )
                 expect( config ).toHaveProperty( 'audience' )

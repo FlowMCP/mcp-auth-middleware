@@ -232,13 +232,13 @@ describe('StaticBearer Integration Tests', () => {
         })
 
         test('getRouteConfig returns correct config for staticBearer', () => {
-            const apiConfig = mixedMiddleware.getRouteConfig('/api')
+            const apiConfig = mixedMiddleware.getRouteConfig({ routePath: '/api' })
             expect(apiConfig.authType).toBe('staticBearer')
             expect(apiConfig.token).toBe('static-bearer-token-123')
         })
 
         test('getRouteConfig returns correct config for oauth21_auth0', () => {
-            const oauthConfig = mixedMiddleware.getRouteConfig('/oauth')
+            const oauthConfig = mixedMiddleware.getRouteConfig({ routePath: '/oauth' })
             expect(oauthConfig.authType).toBe('oauth21_auth0')
             expect(oauthConfig.providerUrl).toBe('https://tenant.auth0.com')
         })

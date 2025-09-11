@@ -297,7 +297,7 @@ describe('McpAuthMiddleware Edge Cases', () => {
             
             expect(middleware).toBeDefined()
             
-            const routeConfig = middleware.getRouteConfig('/legacy-auth0')
+            const routeConfig = middleware.getRouteConfig({ routePath: '/legacy-auth0' })
             expect(routeConfig.authorizationUrl).toBe('https://my-tenant.auth0.com/authorize')
             expect(routeConfig.tokenUrl).toBe('https://my-tenant.auth0.com/oauth/token')
             expect(routeConfig.jwksUrl).toBe('https://my-tenant.auth0.com/.well-known/jwks.json')
@@ -329,7 +329,7 @@ describe('McpAuthMiddleware Edge Cases', () => {
             
             expect(middleware).toBeDefined()
             
-            const routeConfig = middleware.getRouteConfig('/legacy-keycloak')
+            const routeConfig = middleware.getRouteConfig({ routePath: '/legacy-keycloak' })
             expect(routeConfig.authorizationUrl).toBe('https://keycloak.example.com/realms/master/protocol/openid-connect/auth')
             expect(routeConfig.tokenUrl).toBe('https://keycloak.example.com/realms/master/protocol/openid-connect/token')
             expect(routeConfig.jwksUrl).toBe('https://keycloak.example.com/realms/master/protocol/openid-connect/certs')
@@ -358,7 +358,7 @@ describe('McpAuthMiddleware Edge Cases', () => {
 
             const middleware = await McpAuthMiddleware.create({ routes, silent: true })
             
-            const routeConfig = middleware.getRouteConfig('/legacy-defaults')
+            const routeConfig = middleware.getRouteConfig({ routePath: '/legacy-defaults' })
             expect(routeConfig.authFlow).toBe('authorization-code')
             expect(routeConfig.requiredScopes).toEqual(['openid', 'profile'])
             expect(routeConfig.forceHttps).toBe(true) // Default to true for OAuth 2.1 compliance
@@ -400,7 +400,7 @@ describe('McpAuthMiddleware Edge Cases', () => {
 
             const middleware = await McpAuthMiddleware.create({ routes, silent: true })
             
-            const routeConfig = middleware.getRouteConfig('/legacy-custom')
+            const routeConfig = middleware.getRouteConfig({ routePath: '/legacy-custom' })
             expect(routeConfig.authFlow).toBe('client-credentials')
             expect(routeConfig.requiredScopes).toEqual(['custom:read', 'custom:write'])
             expect(routeConfig.forceHttps).toBe(false)
@@ -440,7 +440,7 @@ describe('McpAuthMiddleware Edge Cases', () => {
 
             const middleware = await McpAuthMiddleware.create({ routes, silent: true })
             
-            const routeConfig = middleware.getRouteConfig('/authtype-defaults')
+            const routeConfig = middleware.getRouteConfig({ routePath: '/authtype-defaults' })
             expect(routeConfig.authFlow).toBe('authorization-code') // Default
             expect(routeConfig.requiredRoles).toEqual([]) // Default
             expect(routeConfig.allowAnonymous).toBe(false) // Default
@@ -473,7 +473,7 @@ describe('McpAuthMiddleware Edge Cases', () => {
 
             const middleware = await McpAuthMiddleware.create({ routes, silent: true })
             
-            const routeConfig = middleware.getRouteConfig('/authtype-custom')
+            const routeConfig = middleware.getRouteConfig({ routePath: '/authtype-custom' })
             expect(routeConfig.authFlow).toBe('client-credentials')
             expect(routeConfig.requiredRoles).toEqual(['admin'])
             expect(routeConfig.allowAnonymous).toBe(true)

@@ -90,7 +90,7 @@ const middleware = await McpAuthMiddleware.create({
 - `.router()` - Get Express router with OAuth endpoints
 - `.getRoutes()` - Get configured routes array
 - `.getRealms()` - Get realm configurations
-- `.getRouteConfig(route)` - Get specific route config
+- `.getRouteConfig({ routePath })` - Get specific route config
 
 ### Testing Commands
 ```bash

@@ -22,13 +22,13 @@ class OAuthFlowHandler {
         const handler = new OAuthFlowHandler( { silent } )
         
         // Initialize all route configurations
-        Object.entries( routes ).forEach( ( [ route, config ] ) => {
+        Object.entries( routes ).forEach( ( [ routePath, config ] ) => {
             const normalizedConfig = {
                 providerUrl: config.providerUrl,
                 realm: config.realm,
                 clientId: config.clientId,
                 clientSecret: config.clientSecret,
-                redirectUri: `${baseRedirectUri}${route}/auth/callback`,
+                redirectUri: `${baseRedirectUri}${routePath}/auth/callback`,
                 authFlow: config.authFlow || 'authorization_code',
                 requiredScopes: config.requiredScopes || [],
                 forceHttps: config.forceHttps,
@@ -44,7 +44,7 @@ class OAuthFlowHandler {
                     `${config.providerUrl}/realms/${config.realm}/protocol/openid-connect/auth/device`
             }
             
-            handler.#routeConfigs.set( route, normalizedConfig )
+            handler.#routeConfigs.set( routePath, normalizedConfig )
         } )
 
         return handler
@@ -114,8 +114,8 @@ class OAuthFlowHandler {
     }
 
 
-    initiateAuthorizationCodeFlowForRoute( { route, scopes = [ 'openid' ], resourceIndicators = [] } ) {
-        const config = this.#getConfigForRoute( { route } )
+    initiateAuthorizationCodeFlowForRoute( { routePath, scopes = [ 'openid' ], resourceIndicators = [] } ) {
+        const config = this.#getConfigForRoute( { routePath } )
         const state = crypto.randomBytes( 16 ).toString( 'base64url' )
         const { pair } = PKCEGenerator.generatePKCEPair()
         
@@ -126,7 +126,7 @@ class OAuthFlowHandler {
             
         const authRequest = {
             state,
-            route,
+            routePath,
             codeVerifier: pair.codeVerifier,
             codeChallenge: pair.codeChallenge,
             codeChallengeMethod: pair.codeChallengeMethod,
@@ -158,10 +158,10 @@ class OAuthFlowHandler {
         
         Logger.info( { 
             silent: this.#silent, 
-            message: `Authorization URL for route ${route}: ${authorizationUrl}` 
+            message: `Authorization URL for route ${routePath}: ${authorizationUrl}` 
         } )
 
-        return { authorizationUrl, state, route }
+        return { authorizationUrl, state, routePath }
     }
 
 
@@ -177,7 +177,7 @@ class OAuthFlowHandler {
         
         const { tokens } = await this.#exchangeCodeForTokensForRoute( { 
             code, 
-            route: authRequest.route,
+            routePath: authRequest.routePath,
             codeVerifier: authRequest.codeVerifier,
             resourceIndicators: authRequest.resourceIndicators
         } )
@@ -187,14 +187,14 @@ class OAuthFlowHandler {
         return { 
             success: true, 
             tokens,
-            route: authRequest.route,
+            routePath: authRequest.routePath,
             resourceIndicators: authRequest.resourceIndicators
         }
     }
 
 
-    async requestClientCredentialsForRoute( { route, scopes = [] } ) {
-        const config = this.#getConfigForRoute( { route } )
+    async requestClientCredentialsForRoute( { routePath, scopes = [] } ) {
+        const config = this.#getConfigForRoute( { routePath } )
         
         const params = new URLSearchParams( {
             grant_type: 'client_credentials',
@@ -225,15 +225,15 @@ class OAuthFlowHandler {
         
         Logger.info( { 
             silent: this.#silent, 
-            message: `Client credentials obtained for route ${route}` 
+            message: `Client credentials obtained for route ${routePath}` 
         } )
 
-        return { tokens, route }
+        return { tokens, routePath }
     }
 
 
-    async refreshAccessTokenForRoute( { refreshToken, route, resourceIndicators = [] } ) {
-        const config = this.#getConfigForRoute( { route } )
+    async refreshAccessTokenForRoute( { refreshToken, routePath, resourceIndicators = [] } ) {
+        const config = this.#getConfigForRoute( { routePath } )
         
         const params = new URLSearchParams( {
             grant_type: 'refresh_token',
@@ -266,21 +266,21 @@ class OAuthFlowHandler {
             return { 
                 success: false, 
                 error: tokens.error_description || 'Token refresh failed',
-                route 
+                routePath 
             }
         }
 
         return { 
             success: true, 
             tokens,
-            route
+            routePath
         }
     }
 
 
     // Backwards compatibility methods
     initiateAuthorizationCodeFlow( { scopes = [ 'openid' ], resourceIndicators = [] } ) {
-        return this.initiateAuthorizationCodeFlowForRoute( { route: 'default', scopes, resourceIndicators } )
+        return this.initiateAuthorizationCodeFlowForRoute( { routePath: 'default', scopes, resourceIndicators } )
     }
 
 
@@ -290,20 +290,20 @@ class OAuthFlowHandler {
 
 
     async requestClientCredentials( { scopes = [] } ) {
-        return this.requestClientCredentialsForRoute( { route: 'default', scopes } )
+        return this.requestClientCredentialsForRoute( { routePath: 'default', scopes } )
     }
 
 
     async refreshAccessToken( { refreshToken } ) {
-        return this.refreshAccessTokenForRoute( { refreshToken, route: 'default' } )
+        return this.refreshAccessTokenForRoute( { refreshToken, routePath: 'default' } )
     }
 
 
-    #getConfigForRoute( { route } ) {
-        const config = this.#routeConfigs.get( route )
+    #getConfigForRoute( { routePath } ) {
+        const config = this.#routeConfigs.get( routePath )
         
         if( !config ) {
-            throw new Error( `No configuration found for route: ${route}` )
+            throw new Error( `No configuration found for route: ${routePath}` )
         }
 
         return config
@@ -315,8 +315,8 @@ class OAuthFlowHandler {
     }
 
 
-    getRouteConfig( { route } ) {
-        return this.#getConfigForRoute( { route } )
+    getRouteConfig( { routePath } ) {
+        return this.#getConfigForRoute( { routePath } )
     }
 
 
@@ -339,8 +339,8 @@ class OAuthFlowHandler {
     }
 
 
-    async #exchangeCodeForTokensForRoute( { code, route, codeVerifier, resourceIndicators = [] } ) {
-        const config = this.#getConfigForRoute( { route } )
+    async #exchangeCodeForTokensForRoute( { code, routePath, codeVerifier, resourceIndicators = [] } ) {
+        const config = this.#getConfigForRoute( { routePath } )
         
         const params = new URLSearchParams( {
             grant_type: 'authorization_code',
@@ -380,7 +380,7 @@ class OAuthFlowHandler {
 
     // Backwards compatibility
     async #exchangeCodeForTokens( { code, codeVerifier } ) {
-        return this.#exchangeCodeForTokensForRoute( { code, route: 'default', codeVerifier } )
+        return this.#exchangeCodeForTokensForRoute( { code, routePath: 'default', codeVerifier } )
     }
 }
 

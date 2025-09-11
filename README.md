@@ -19,7 +19,8 @@ Express-compatible multi-realm authentication middleware for securing MCP server
     - [.create({ routes, silent })](#create-routes-silent-)
     - [.router()](#router)
     - [.getRoutes()](#getroutes)
-    - [.getRouteConfig(route)](#getrouteconfigroute)
+    - [.getRouteConfig({ routePath })](#getrouteconfigroutepath)
+    - [.getRouteClient({ routePath })](#getrouteclientroutepath)
     - [.getRealms()](#getrealms)
   - [Testing](#testing)
   - [License](#license)
@@ -155,14 +156,23 @@ Returns array of configured route paths.
 
 **Returns:** Array of strings
 
-### .getRouteConfig(route)
+### .getRouteConfig({ routePath })
 
 Returns AuthType configuration for specific route path.
 
 **Parameters:**
-- `route` - Route path string
+- `routePath` - Route path string
 
 **Returns:** Configuration object
+
+### .getRouteClient({ routePath })
+
+Returns the authentication client instance for specific route path.
+
+**Parameters:**
+- `routePath` - Route path string
+
+**Returns:** Client instance object
 
 ### .getRealms()
 

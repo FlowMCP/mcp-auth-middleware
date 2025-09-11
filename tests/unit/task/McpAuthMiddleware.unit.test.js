@@ -199,7 +199,7 @@ describe( 'McpAuthMiddleware - Unit Tests', () => {
             }
 
             const middleware = await McpAuthMiddleware.create( auth0Config )
-            const config = middleware.getRouteConfig( '/api' )
+            const config = middleware.getRouteConfig( { routePath: '/api' } )
 
             expect( config.authType ).toBe( 'oauth21_auth0' )
             expect( config.providerUrl ).toBe( 'https://test.auth0.com' )
@@ -222,7 +222,7 @@ describe( 'McpAuthMiddleware - Unit Tests', () => {
             }
 
             const middleware = await McpAuthMiddleware.create( validConfig )
-            const config = middleware.getRouteConfig( '/api' )
+            const config = middleware.getRouteConfig( { routePath: '/api' } )
 
             expect( config.authType ).toBe( 'oauth21_auth0' )
             expect( config.scope ).toBe( 'openid profile email api:read' )
@@ -269,7 +269,7 @@ describe( 'McpAuthMiddleware - Unit Tests', () => {
 
 
         test( 'getRouteConfig returns route configuration', () => {
-            const config = middleware.getRouteConfig( '/api' )
+            const config = middleware.getRouteConfig( { routePath: '/api' } )
             
             expect( config ).toMatchObject( {
                 authType: 'oauth21_auth0',
@@ -281,7 +281,7 @@ describe( 'McpAuthMiddleware - Unit Tests', () => {
 
 
         test( 'getRouteConfig returns undefined for invalid route', () => {
-            const config = middleware.getRouteConfig( '/nonexistent' )
+            const config = middleware.getRouteConfig( { routePath: '/nonexistent' } )
             
             expect( config ).toBeUndefined()
         } )
@@ -374,10 +374,10 @@ describe( 'McpAuthMiddleware - Unit Tests', () => {
             expect( routes ).toContain( '/api' )
             expect( routes ).toContain( '/admin' )
 
-            const apiConfig = middleware.getRouteConfig( '/api' )
+            const apiConfig = middleware.getRouteConfig( { routePath: '/api' } )
             expect( apiConfig.audience ).toBe( 'https://api.example.com' )
 
-            const adminConfig = middleware.getRouteConfig( '/admin' )
+            const adminConfig = middleware.getRouteConfig( { routePath: '/admin' } )
             expect( adminConfig.audience ).toBe( 'https://admin.example.com' )
         } )
 
@@ -449,7 +449,7 @@ describe( 'McpAuthMiddleware - Unit Tests', () => {
             }
 
             const middleware = await McpAuthMiddleware.create( configWithExtras )
-            const routeConfig = middleware.getRouteConfig( '/api' )
+            const routeConfig = middleware.getRouteConfig( { routePath: '/api' } )
 
             expect( routeConfig.customField ).toBe( 'custom-value' )
             expect( routeConfig.anotherField ).toBe( 123 )
@@ -566,8 +566,8 @@ describe( 'McpAuthMiddleware - Unit Tests', () => {
 
 
         test( 'generates correct OAuth endpoints for each route', () => {
-            const apiConfig = middleware.getRouteConfig( '/api' )
-            const adminConfig = middleware.getRouteConfig( '/admin' )
+            const apiConfig = middleware.getRouteConfig( { routePath: '/api' } )
+            const adminConfig = middleware.getRouteConfig( { routePath: '/admin' } )
 
             // API route config
             expect( apiConfig ).toMatchObject( {

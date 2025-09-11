@@ -337,9 +337,9 @@ class McpAuthMiddleware {
             // Resource parameter for audience binding (RFC 8707)
             const resourceUri = `${req.protocol}://${req.get( 'host' )}${routePath}`
             
-            const { authorizationUrl, state, route } = 
+            const { authorizationUrl, state, routePath: returnedRoutePath } = 
                 sharedHelpers.oauthFlowHandler.initiateAuthorizationCodeFlowForRoute( {
-                    route: routePath,
+                    routePath: routePath,
                     scopes: config.requiredScopes,
                     resourceIndicators: [ resourceUri ]
                 } )
@@ -397,17 +397,17 @@ class McpAuthMiddleware {
         }
         
         try {
-            const { success, tokens, route, resourceIndicators, error } = await 
+            const { success, tokens, routePath, resourceIndicators, error } = await 
                 sharedHelpers.oauthFlowHandler.handleAuthorizationCallbackForRoute( {
                     code,
                     state
                 } )
             
             if( success ) {
-                const config = this.#routeConfigs.get( route )
+                const config = this.#routeConfigs.get( routePath )
                 
                 this.#logRouteAccess( { 
-                    routePath: route, 
+                    routePath: routePath, 
                     method: 'CALLBACK', 
                     status: 'success', 
                     user: { sub: 'authenticated' } 
@@ -415,14 +415,14 @@ class McpAuthMiddleware {
                 
                 res.json( {
                     message: 'Authentication successful',
-                    route: route,
+                    route: routePath,
                     realm: config.realm,
                     access_token: tokens.access_token,
                     token_type: tokens.token_type,
                     expires_in: tokens.expires_in,
                     scope: tokens.scope,
                     resourceIndicators,
-                    usage: `Use Bearer token for ${route} endpoints`
+                    usage: `Use Bearer token for ${routePath} endpoints`
                 } )
             } else {
                 res.status( 400 ).json( {
@@ -1049,7 +1049,7 @@ class McpAuthMiddleware {
     }
 
 
-    getRouteConfig( routePath ) {
+    getRouteConfig( { routePath } ) {
         const config = this.#routeConfigs.get( routePath )
         if( !config ) {
             return undefined
@@ -1105,16 +1105,9 @@ class McpAuthMiddleware {
     }
 
 
-    getRouteClient( routePath ) {
+    getRouteClient( { routePath } ) {
         return this.#routeClients.get( routePath )
     }
-
-
-    getRoutes() {
-        return Array.from( this.#routeConfigs.keys() )
-    }
-
-
 
 
     displayStatus() {

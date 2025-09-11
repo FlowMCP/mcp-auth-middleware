@@ -90,12 +90,12 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
             initiateAuthorizationCodeFlowForRoute: jest.fn().mockReturnValue({
                 authorizationUrl: 'https://tenant.auth0.com/authorize?client_id=test',
                 state: 'test-state',
-                route: '/api'
+                routePath: '/api'
             }),
             handleAuthorizationCallbackForRoute: jest.fn().mockResolvedValue({
                 success: true,
                 tokens: { access_token: 'test-token' },
-                route: '/api'
+                routePath: '/api'
             })
         }
 
@@ -138,7 +138,7 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
             expect(response.headers.location).toContain('https://tenant.auth0.com/authorize')
             expect(mockOAuthFlowHandler.initiateAuthorizationCodeFlowForRoute).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    route: '/api'
+                    routePath: '/api'
                 })
             )
         })
@@ -150,7 +150,7 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
 
             expect(mockOAuthFlowHandler.initiateAuthorizationCodeFlowForRoute).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    route: '/api',
+                    routePath: '/api',
                     resourceIndicators: expect.any(Array),
                     scopes: expect.any(Array)
                 })
