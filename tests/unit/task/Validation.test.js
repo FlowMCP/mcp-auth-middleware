@@ -126,7 +126,7 @@ describe( 'Validation', () => {
                 routes: {
                     '/api': {
                         authType: 'oauth21_auth0',
-                        providerUrl: 'https://example.com', // Not auth0.com domain
+                        providerUrl: 'invalid-url', // Invalid URL format
                         clientId: 'test-client-id',
                         clientSecret: 'test-client-secret',
                         scope: 'openid profile email',
@@ -136,7 +136,7 @@ describe( 'Validation', () => {
             } )
 
             expect( result.status ).toBe( false )
-            expect( result.messages.some( msg => msg.includes( 'auth0.com domain' ) ) ).toBe( true )
+            expect( result.messages.some( msg => msg.includes( 'valid URL' ) ) ).toBe( true )
         } )
 
 

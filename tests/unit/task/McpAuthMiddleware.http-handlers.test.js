@@ -310,7 +310,7 @@ describe('McpAuthMiddleware HTTP Handlers', () => {
             expect(response.body.endpoints).toHaveProperty('login')
             expect(response.body.endpoints).toHaveProperty('callback')
             expect(response.body.endpoints.login).toContain('/api/auth/login')
-            expect(response.body.endpoints.callback).toContain('/api/callback')
+            expect(response.body.endpoints.callback).toContain('/api/auth/callback')
             
             expect(response.body.scopes.required).toEqual(['openid', 'profile'])
         })

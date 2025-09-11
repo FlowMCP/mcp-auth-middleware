@@ -138,7 +138,7 @@ describe( 'OAuthFlowHandler', () => {
                 realm: 'api-realm',
                 clientId: 'api-client',
                 clientSecret: 'api-secret',
-                redirectUri: 'http://localhost:3000/api/v1/callback',
+                redirectUri: 'http://localhost:3000/api/v1/auth/callback',
                 authFlow: 'authorization_code',
                 requiredScopes: [ 'api:read', 'api:write' ],
                 forceHttps: true,
