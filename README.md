@@ -4,7 +4,7 @@
 
 Express-compatible multi-realm authentication middleware for securing MCP server endpoints with OAuth 2.1 and Bearer token support.
 
-## Table of Contents 
+## Table of Contents
 
 - [MCP OAuth Middleware](#mcp-oauth-middleware)
   - [Table of Contents](#table-of-contents)
