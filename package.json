@@ -17,7 +17,7 @@
         "start:demo": "node tests/manual/1-reference-implementation-flowmcp.mjs",
         "start:mcp": "node tests/manual/0-reference-implementation-mcp.mjs",
         "start:flowmcp": "node tests/manual/1-reference-implementation-flowmcp.mjs",
-        "inspect": "mcp-inspector"
+        "inspector": "mcp-inspector"
     },
     "keywords": [
         "oauth",

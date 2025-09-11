@@ -72,7 +72,7 @@ src/
 const middleware = await McpAuthMiddleware.create({
     routes: {
         '/route': {
-            providerName: 'auth0',     // Provider identifier
+            authType: 'oauth21_auth0', // Auth type identifier
             providerUrl: 'string',     // Provider base URL
             realm: 'string',           // Provider realm
             clientId: 'string',
@@ -155,7 +155,6 @@ const credentials = TestUtils.getEnvParams( {
 
 - **envPath**: Never hardcoded, always configurable
 - **selection**: Array of [outputKey, envKey] mappings
-- Replaces legacy `getAuth0Params()` method
 
 ## Key Technologies
 

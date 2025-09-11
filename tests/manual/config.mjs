@@ -8,9 +8,6 @@ const envParams = TestUtils.getEnvParams( {
         [ 'firstRouteAuth0Domain',        'FIRST_ROUTE_AUTH0_DOMAIN'         ],
         [ 'firstRouteAuth0ClientId',      'FIRST_ROUTE_AUTH0_CLIENT_ID'      ],
         [ 'firstRouteAuth0ClientSecret',  'FIRST_ROUTE_AUTH0_CLIENT_SECRET'  ],
-        [ 'secondRouteAuth0Domain',       'SECOND_ROUTE_AUTH0_DOMAIN'        ],
-        [ 'secondRouteAuth0ClientId',     'SECOND_ROUTE_AUTH0_CLIENT_ID'     ],
-        [ 'secondRouteAuth0ClientSecret', 'SECOND_ROUTE_AUTH0_CLIENT_SECRET' ],
         [ 'thirdRouteBearerToken',        'THIRD_ROUTE_BEARER_TOKEN'         ]
     ]
 } )
@@ -19,9 +16,6 @@ const {
     firstRouteAuth0Domain, 
     firstRouteAuth0ClientId, 
     firstRouteAuth0ClientSecret,
-    secondRouteAuth0Domain, 
-    secondRouteAuth0ClientId, 
-    secondRouteAuth0ClientSecret,
     thirdRouteBearerToken
 } = envParams
 
@@ -60,46 +54,11 @@ const config = {
                 'clientId': firstRouteAuth0ClientId || 'your-first-route-client-id',
                 'clientSecret': firstRouteAuth0ClientSecret || 'your-first-route-client-secret',
                 'scope': 'openid profile email',
-                'audience': 'http://localhost:3000/first-route',
+                'audience': 'http://localhost:3000/first-route/sse',
                 'resourceUri': null,
                 'forceHttps': false
             }
         },
-/*
-        {
-            'authType': 'oauth21_auth0',
-            'routePath': '/second-route',
-            'name': 'Second Auth0 Route',
-            'description': 'Testing second Auth0 client configuration with different schemas',
-            'bearerIsPublic': false,
-            'protocol': 'sse',
-            'schemas': async() => {
-                const all = await SchemaImporter
-                    .loadFromFolder( {
-                        excludeSchemasWithImports: true,
-                        excludeSchemasWithRequiredServerParams: true,
-                        addAdditionalMetaData: false
-                    } )
-                const arrayOfSchemas = all
-                    .map( ( { schema } ) => schema )
-                    .filter( ( _, index ) => index === 1 ) // nur das zweite Schema nehmen
-
-                return { arrayOfSchemas }
-            },
-            'auth': {
-                'enabled': true,
-                'providerName': 'auth0', // EXPLICIT PROVIDER SPECIFICATION
-                'providerUrl': `https://${secondRouteAuth0Domain}`,
-                'realm': 'second-route-realm', // Auth0 pseudo-realm für zweite Route
-                'clientId': secondRouteAuth0ClientId || 'your-second-route-client-id',
-                'clientSecret': secondRouteAuth0ClientSecret || 'your-second-route-client-secret',
-                'scope': 'openid profile email',
-                'audience': 'http://localhost:3000/second-route',
-                'resourceUri': null,
-                'forceHttps': false
-            }
-        },
-*/
 /*
         {
             'routePath': '/third-route',

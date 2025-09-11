@@ -88,10 +88,12 @@ class AuthTypeValidator {
         // Add individual type error messages
         struct['messages'].push( ...typeErrors )
 
-        // Auth0-specific domain validation
+        // Auth0-specific domain validation - accept any valid URL
         if( config.providerUrl && typeof config.providerUrl === 'string' ) {
-            if( !config.providerUrl.includes( 'auth0.com' ) ) {
-                struct['messages'].push( `OAuth21 Auth0 configuration requires auth0.com domain in providerUrl, got: ${config.providerUrl}` )
+            try {
+                new URL( config.providerUrl )
+            } catch( error ) {
+                struct['messages'].push( `OAuth21 Auth0 configuration requires valid URL in providerUrl, got: ${config.providerUrl}` )
             }
         }
 

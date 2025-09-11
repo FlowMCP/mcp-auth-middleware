@@ -13,9 +13,9 @@ app.use( express.json() )
 
 // CORS für Inspector-Zugriff
 app.use( cors( {
-    origin: ['http://localhost:6274', 'http://localhost:3000'],
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: ['http://localhost:6274', 'http://localhost:3000', 'http://localhost:6277'],
+    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'mcp-protocol-version', 'Accept', 'Origin', 'X-Requested-With'],
     credentials: false
 } ) )
 

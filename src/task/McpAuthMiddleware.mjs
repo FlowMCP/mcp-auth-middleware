@@ -454,7 +454,7 @@ class McpAuthMiddleware {
             // Required fields per RFC 9728
             resource: resourceUri,
             authorization_servers: [
-                `${config.providerUrl}/realms/${config.realm}`
+                config.authType === 'oauth21_auth0' ? config.providerUrl : `${config.providerUrl}/realms/${config.realm}`
             ],
             
             // Optional but recommended fields
@@ -479,7 +479,7 @@ class McpAuthMiddleware {
             links: [
                 {
                     rel: 'authorization_server',
-                    href: `${config.providerUrl}/realms/${config.realm}`
+                    href: config.authType === 'oauth21_auth0' ? config.providerUrl : `${config.providerUrl}/realms/${config.realm}`
                 },
                 {
                     rel: 'login',
@@ -515,7 +515,7 @@ class McpAuthMiddleware {
             authFlow: config.authFlow,
             endpoints: {
                 login: `${baseUrl}${routePath}/auth/login`,
-                callback: `${baseUrl}${routePath}/callback`,
+                callback: `${baseUrl}${routePath}/auth/callback`,
                 protected_resource_metadata: `${baseUrl}/.well-known/oauth-protected-resource${routePath}`
             },
             scopes: {
@@ -845,7 +845,7 @@ class McpAuthMiddleware {
             // Display OAuth endpoints
             this.#log( `   ├─ Endpoints:` )
             this.#log( `   │  ├─ Login:     ${baseUrl}${routePath}/auth/login` )
-            this.#log( `   │  ├─ Callback:  ${baseUrl}${routePath}/callback` )
+            this.#log( `   │  ├─ Callback:  ${baseUrl}${routePath}/auth/callback` )
             this.#log( `   │  ├─ Discovery: ${baseUrl}${routePath}/discovery` )
             this.#log( `   │  └─ Metadata:  ${baseUrl}/.well-known/oauth-protected-resource${routePath}` )
             this.#log( `   └─ Auth0 Setup:` )

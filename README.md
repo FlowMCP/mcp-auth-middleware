@@ -83,29 +83,6 @@ Returns AuthType configuration for specific route path.
 ### `.getRealms()`
 Returns array of configured realms across all routes.
 
-## Legacy Support
-
-For backwards compatibility, the legacy `providerName: 'auth0'` configuration is still supported but deprecated. New projects should use the `authType` configuration:
-
-```javascript
-// ✅ NEW (Recommended)
-routes: {
-    '/api': {
-        authType: 'oauth21_auth0',
-        providerUrl: 'https://tenant.auth0.com',
-        // ...
-    }
-}
-
-// ⚠️ LEGACY (Still works, but deprecated)  
-routes: {
-    '/api': {
-        providerName: 'auth0', 
-        providerUrl: 'https://tenant.auth0.com',
-        // ...
-    }
-}
-```
 
 ## Testing
 

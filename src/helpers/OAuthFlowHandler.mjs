@@ -28,7 +28,7 @@ class OAuthFlowHandler {
                 realm: config.realm,
                 clientId: config.clientId,
                 clientSecret: config.clientSecret,
-                redirectUri: `${baseRedirectUri}${route}/callback`,
+                redirectUri: `${baseRedirectUri}${route}/auth/callback`,
                 authFlow: config.authFlow || 'authorization_code',
                 requiredScopes: config.requiredScopes || [],
                 forceHttps: config.forceHttps,
