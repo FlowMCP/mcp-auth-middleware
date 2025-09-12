@@ -42,6 +42,9 @@ const arrayOfRoutes = routeConfigs
 const { app, mcps, events, argv, server } = DeployAdvanced
     .init( { silent } )
 
+// Enable trust proxy for correct protocol detection behind reverse proxies
+app.set( 'trust proxy', true )
+
 // CORS für Inspector-Zugriff
 app.use( cors( {
     origin: '*',

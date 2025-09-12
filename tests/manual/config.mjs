@@ -58,7 +58,7 @@ const config = {
                 'scope': 'openid profile email',
                 'audience': 'http://localhost:3000/first-route/sse',
                 'resourceUri': null,
-                'forceHttps': false
+                'forceHttps': true
             }
         },
 /*

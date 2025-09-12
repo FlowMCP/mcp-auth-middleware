@@ -9,6 +9,10 @@ import { config } from './config.mjs'
 
 
 const app = express()
+
+// Enable trust proxy for correct protocol detection behind reverse proxies
+app.set( 'trust proxy', true )
+
 app.use( express.json() )
 
 // CORS für Inspector-Zugriff

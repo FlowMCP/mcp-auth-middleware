@@ -522,7 +522,10 @@ class McpAuthMiddleware {
 
     #handleRouteDiscovery( { req, res, routePath } ) {
         const config = this.#routeConfigs.get( routePath )
-        const baseUrl = `${req.protocol}://${req.get( 'host' )}`
+        
+        // FIX: Respect forceHttps setting when generating URLs
+        const protocol = config.forceHttps ? 'https' : req.protocol
+        const baseUrl = `${protocol}://${req.get( 'host' )}`
         
         res.json( {
             route: routePath,
