@@ -66,7 +66,9 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
             expect( middleware ).toBeDefined()
             expect( mockValidation.validationCreate ).toHaveBeenCalledWith( {
                 routes: { '/api': { providerUrl: 'https://auth.example.com' } },
-                silent: true
+                silent: true,
+                baseUrl: 'http://localhost:3000',
+                forceHttps: false
             } )
         } )
 

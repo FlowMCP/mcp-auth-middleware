@@ -3,17 +3,66 @@ import { AuthTypeRegistry } from '../core/AuthTypeRegistry.mjs'
 
 
 class Validation {
-    static validationCreate( { routes, silent } ) {
+    static validationCreate( createParams ) {
+        // Extract known parameters and check for unknown ones
+        const { routes, silent, baseUrl, forceHttps, ...unknownParams } = createParams || {}
         const struct = { status: false, messages: [] }
 
+        // Check for unknown parameters
+        const unknownKeys = Object.keys( unknownParams )
+        if( unknownKeys.length > 0 ) {
+            struct['messages'].push( `Unknown parameters: ${unknownKeys.join( ', ' )}. Allowed: routes, silent, baseUrl, forceHttps` )
+        }
+
+        // Check if createParams is provided at all
+        if( createParams === undefined || createParams === null ) {
+            struct['messages'].push( 'Create parameters object is required' )
+            return struct
+        }
+
+        // Required parameter: routes
         if( routes === undefined || routes === null ) {
             struct['messages'].push( 'routes: Missing value' )
         } else if( typeof routes !== 'object' || Array.isArray( routes ) ) {
             struct['messages'].push( 'routes: Must be an object' )
         }
 
+        // Optional parameter: silent
         if( silent !== undefined && typeof silent !== 'boolean' ) {
             struct['messages'].push( 'silent: Must be a boolean' )
+        }
+
+        // Optional parameter: baseUrl
+        if( baseUrl !== undefined ) {
+            if( typeof baseUrl !== 'string' ) {
+                struct['messages'].push( 'baseUrl: Must be a string' )
+            } else if( baseUrl.trim() === '' ) {
+                struct['messages'].push( 'baseUrl: Cannot be empty' )
+            } else {
+                // Validate URL format
+                try {
+                    const url = new URL( baseUrl )
+                    if( ![ 'http:', 'https:' ].includes( url.protocol ) ) {
+                        struct['messages'].push( 'baseUrl: Must use http:// or https:// protocol' )
+                    }
+                    if( url.pathname !== '/' ) {
+                        struct['messages'].push( 'baseUrl: Must not contain a path (use protocol://host:port format)' )
+                    }
+                    if( url.search ) {
+                        struct['messages'].push( 'baseUrl: Must not contain query parameters' )
+                    }
+                    if( url.hash ) {
+                        struct['messages'].push( 'baseUrl: Must not contain hash/fragment' )
+                    }
+                } catch( error ) {
+                    struct['messages'].push( `baseUrl: Invalid URL format - ${error.message}` )
+                }
+            }
+        }
+
+        // Optional parameter: forceHttps
+        if( forceHttps !== undefined && typeof forceHttps !== 'boolean' ) {
+            struct['messages'].push( 'forceHttps: Must be a boolean' )
         }
 
         if( struct['messages'].length > 0 ) {

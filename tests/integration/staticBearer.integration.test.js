@@ -16,7 +16,10 @@ describe('StaticBearer Integration Tests', () => {
     }
 
     beforeEach(async () => {
-        middleware = await McpAuthMiddleware.create(testConfig)
+        middleware = await McpAuthMiddleware.create({ 
+            routes: testConfig.routes, 
+            silent: testConfig.silent 
+        })
         
         app = express()
         app.use(express.json())
@@ -130,7 +133,10 @@ describe('StaticBearer Integration Tests', () => {
                 silent: true
             }
 
-            multiRouteMiddleware = await McpAuthMiddleware.create(multiRouteConfig)
+            multiRouteMiddleware = await McpAuthMiddleware.create({ 
+                routes: multiRouteConfig.routes, 
+                silent: multiRouteConfig.silent 
+            })
             
             multiRouteApp = express()
             multiRouteApp.use(express.json())
@@ -200,7 +206,10 @@ describe('StaticBearer Integration Tests', () => {
                 silent: true
             }
 
-            mixedMiddleware = await McpAuthMiddleware.create(mixedConfig)
+            mixedMiddleware = await McpAuthMiddleware.create({ 
+                routes: mixedConfig.routes, 
+                silent: mixedConfig.silent 
+            })
             
             mixedApp = express()
             mixedApp.use(express.json())
@@ -257,7 +266,10 @@ describe('StaticBearer Integration Tests', () => {
                 silent: true
             }
 
-            const longTokenMiddleware = await McpAuthMiddleware.create(longTokenConfig)
+            const longTokenMiddleware = await McpAuthMiddleware.create({ 
+                routes: longTokenConfig.routes, 
+                silent: longTokenConfig.silent 
+            })
             const longTokenApp = express()
             longTokenApp.use(longTokenMiddleware.router())
             longTokenApp.get('/api/test', (req, res) => res.json({ ok: true }))
@@ -282,7 +294,10 @@ describe('StaticBearer Integration Tests', () => {
                 silent: true
             }
 
-            const specialMiddleware = await McpAuthMiddleware.create(specialConfig)
+            const specialMiddleware = await McpAuthMiddleware.create({ 
+                routes: specialConfig.routes, 
+                silent: specialConfig.silent 
+            })
             const specialApp = express()
             specialApp.use(specialMiddleware.router())
             specialApp.get('/api/test', (req, res) => res.json({ ok: true }))

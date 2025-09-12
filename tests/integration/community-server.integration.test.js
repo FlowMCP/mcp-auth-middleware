@@ -46,7 +46,10 @@ describe( 'Community Server Integration', () => {
             silent: true
         }
         
-        middleware = await McpAuthMiddleware.create( testConfig )
+        middleware = await McpAuthMiddleware.create({ 
+            routes: testConfig.routes, 
+            silent: testConfig.silent 
+        })
     } )
     
     describe( 'FlowMCP RemoteServer Integration', () => {

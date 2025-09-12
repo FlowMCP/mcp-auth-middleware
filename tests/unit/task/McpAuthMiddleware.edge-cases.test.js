@@ -82,23 +82,47 @@ describe('McpAuthMiddleware Edge Cases', () => {
 
     describe('create method edge cases', () => {
         test('throws error when routes is null', async () => {
+            // Mock validation failure for null routes
+            Validation.validationCreate.mockReturnValue({
+                status: false,
+                messages: ['routes: Missing value']
+            })
+
             await expect(McpAuthMiddleware.create({ routes: null }))
-                .rejects.toThrow('routes configuration is required')
+                .rejects.toThrow('Input validation failed: routes: Missing value')
         })
 
         test('throws error when routes is undefined', async () => {
+            // Mock validation failure for undefined routes
+            Validation.validationCreate.mockReturnValue({
+                status: false,
+                messages: ['routes: Missing value']
+            })
+
             await expect(McpAuthMiddleware.create({}))
-                .rejects.toThrow('routes configuration is required')
+                .rejects.toThrow('Input validation failed: routes: Missing value')
         })
 
         test('throws error when routes is string instead of object', async () => {
+            // Mock validation failure for string routes
+            Validation.validationCreate.mockReturnValue({
+                status: false,
+                messages: ['routes: Must be an object']
+            })
+
             await expect(McpAuthMiddleware.create({ routes: 'invalid' }))
-                .rejects.toThrow('routes configuration is required')
+                .rejects.toThrow('Input validation failed: routes: Must be an object')
         })
 
         test('throws error when routes is array instead of object', async () => {
+            // Mock validation failure for array routes
+            Validation.validationCreate.mockReturnValue({
+                status: false,
+                messages: ['routes: Must be an object']
+            })
+
             await expect(McpAuthMiddleware.create({ routes: [] }))
-                .rejects.toThrow('No routes configured - at least one route is required')
+                .rejects.toThrow('Input validation failed: routes: Must be an object')
         })
 
         test('throws error when routes object is empty', async () => {
@@ -155,7 +179,7 @@ describe('McpAuthMiddleware Edge Cases', () => {
             }
 
             await expect(McpAuthMiddleware.create({ routes, silent: true }))
-                .rejects.toThrow('Route validation failed: Missing required field: clientId, Invalid providerUrl format')
+                .rejects.toThrow('Input validation failed: Missing required field: clientId, Invalid providerUrl format')
         })
     })
 
@@ -361,7 +385,7 @@ describe('McpAuthMiddleware Edge Cases', () => {
             const routeConfig = middleware.getRouteConfig({ routePath: '/legacy-defaults' })
             expect(routeConfig.authFlow).toBe('authorization-code')
             expect(routeConfig.requiredScopes).toEqual(['openid', 'profile'])
-            expect(routeConfig.forceHttps).toBe(true) // Default to true for OAuth 2.1 compliance
+            expect(routeConfig.forceHttps).toBe(false) // Global forceHttps default is false
             expect(routeConfig.requiredRoles).toEqual([])
             expect(routeConfig.allowAnonymous).toBe(false)
         })

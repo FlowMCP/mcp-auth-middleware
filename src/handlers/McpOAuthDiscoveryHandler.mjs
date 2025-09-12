@@ -4,16 +4,18 @@ import { Logger } from '../helpers/Logger.mjs'
 class McpOAuthDiscoveryHandler {
     #routes
     #silent
+    #baseUrl
 
 
-    constructor( { routes, silent = false } ) {
+    constructor( { routes, silent = false, baseUrl } ) {
         this.#routes = routes
         this.#silent = silent
+        this.#baseUrl = baseUrl
     }
 
 
-    static create( { routes, silent = false } ) {
-        return new McpOAuthDiscoveryHandler( { routes, silent } )
+    static create( { routes, silent = false, baseUrl } ) {
+        return new McpOAuthDiscoveryHandler( { routes, silent, baseUrl } )
     }
 
 
@@ -74,7 +76,7 @@ class McpOAuthDiscoveryHandler {
         const scopes = scope ? scope.split( ' ' ) : [ 'openid', 'profile', 'email' ]
 
         const metadata = {
-            resource: audience || `http://localhost:3000${routePath}`,
+            resource: audience || `${this.#baseUrl}${routePath}`,
             authorization_servers: [ providerUrl ],
             scopes_supported: scopes,
             bearer_methods_supported: [ 'header' ],

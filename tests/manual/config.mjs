@@ -24,6 +24,8 @@ const config = {
     'envPath': './../../.env',
     'rootUrl': 'http://localhost', // optional
     'port': 3000, // optional
+    'baseUrl': 'http://localhost:3000', // Global base URL for all OAuth endpoints
+    'forceHttps': true, // Global HTTPS enforcement (can be overridden per route)
     'routeConfigs': [
         {
             'authType': 'oauth21_auth0',

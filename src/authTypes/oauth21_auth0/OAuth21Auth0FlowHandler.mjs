@@ -24,7 +24,7 @@ class OAuth21Auth0FlowHandler {
     static createForAuth0( { config, redirectUri, silent = false } ) {
         const enhancedConfig = {
             ...config,
-            redirectUri: redirectUri || `${config.baseUrl || 'http://localhost:3000'}/auth/callback`
+            redirectUri: redirectUri || `${config.baseUrl || config._baseUrl || 'http://localhost:3000'}/auth/callback`
         }
         
         return new OAuth21Auth0FlowHandler( { config: enhancedConfig, silent } )

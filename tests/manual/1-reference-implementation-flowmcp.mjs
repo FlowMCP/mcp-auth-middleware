@@ -4,7 +4,7 @@ import { McpAuthMiddleware } from '../../src/index.mjs'
 import { config } from './config.mjs'
 
 
-const { routeConfigs, silent } = config
+const { routeConfigs, silent, baseUrl, forceHttps } = config
 
 const objectOfMcpAuthRoutes = routeConfigs
     .reduce( ( acc, { routePath, auth, authType } ) => {
@@ -15,7 +15,12 @@ const objectOfMcpAuthRoutes = routeConfigs
     }, {} )
 
 const oauthMiddleware = await McpAuthMiddleware
-    .create( { routes: objectOfMcpAuthRoutes, silent } )
+    .create({ 
+        routes: objectOfMcpAuthRoutes, 
+        silent,
+        baseUrl,
+        forceHttps
+    })
 
 const objectOfSchemaArrays = await routeConfigs
     .reduce( async ( promiseAcc, { routePath, schemas } ) => {

@@ -58,22 +58,22 @@ describe( 'McpAuthMiddleware - Unit Tests', () => {
     describe( 'Static create method', () => {
 
         test( 'throws error when routes is missing', async () => {
-            await expect( McpAuthMiddleware.create( {} ) ).rejects.toThrow( 'routes configuration is required' )
+            await expect( McpAuthMiddleware.create( {} ) ).rejects.toThrow( 'Input validation failed: routes: Missing value' )
         } )
 
 
         test( 'throws error when routes is null', async () => {
-            await expect( McpAuthMiddleware.create( { routes: null } ) ).rejects.toThrow( 'routes configuration is required' )
+            await expect( McpAuthMiddleware.create( { routes: null } ) ).rejects.toThrow( 'Input validation failed: routes: Missing value' )
         } )
 
 
         test( 'throws error when routes is not an object', async () => {
-            await expect( McpAuthMiddleware.create( { routes: 'invalid' } ) ).rejects.toThrow( 'routes configuration is required' )
+            await expect( McpAuthMiddleware.create( { routes: 'invalid' } ) ).rejects.toThrow( 'Input validation failed: routes: Must be an object' )
         } )
 
 
         test( 'throws error when routes is an array', async () => {
-            await expect( McpAuthMiddleware.create( { routes: [ 'invalid' ] } ) ).rejects.toThrow( 'Must start with' )
+            await expect( McpAuthMiddleware.create( { routes: [ 'invalid' ] } ) ).rejects.toThrow( 'Input validation failed: routes: Must be an object' )
         } )
 
 

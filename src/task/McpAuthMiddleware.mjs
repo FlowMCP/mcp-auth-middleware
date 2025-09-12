@@ -16,11 +16,15 @@ class McpAuthMiddleware {
     #routeClients
     #router
     #silent
+    #forceHttps
+    #baseUrl
     #discoveryHandler
 
 
-    constructor( { silent = false } ) {
+    constructor( { silent = false, baseUrl = 'http://localhost:3000', forceHttps = false } ) {
         this.#silent = silent
+        this.#forceHttps = forceHttps
+        this.#baseUrl = this.#resolveBaseUrl( { baseUrl, forceHttps } )
         this.#routeConfigs = new Map()
         this.#routeClients = new Map()
         this.#router = express.Router()
@@ -28,12 +32,16 @@ class McpAuthMiddleware {
     }
 
 
-    static async create( { routes, silent = false } ) {
-        const middleware = new McpAuthMiddleware( { silent } )
-        
-        if( !routes || typeof routes !== 'object' ) {
-            throw new Error( 'routes configuration is required' )
+    static async create( { routes, silent = false, baseUrl = 'http://localhost:3000', forceHttps = false } ) {
+        // Strict input validation
+        const createParams = { routes, silent, baseUrl, forceHttps }
+        const { status, messages } = Validation.validationCreate( createParams )
+        if( !status ) { 
+            const errorMessage = messages.join( ', ' )
+            throw new Error( `Input validation failed: ${errorMessage}` )
         }
+        
+        const middleware = new McpAuthMiddleware( { silent, baseUrl, forceHttps } )
         
         // Initialize all routes concurrently
         await middleware.#initializeRoutes( { routes } )
@@ -64,9 +72,15 @@ class McpAuthMiddleware {
         
         for( const [ routePath, config ] of this.#routeConfigs.entries() ) {
             try {
+                // Enhanced config with internal baseUrl for AuthType handlers
+                const enhancedConfig = { 
+                    ...config, 
+                    _baseUrl: this.#baseUrl 
+                }
+                
                 const authHandler = await AuthTypeFactory.createAuthHandler( { 
                     authType: config.authType, 
-                    config,
+                    config: enhancedConfig,
                     silent: this.#silent 
                 } )
                 authHandlers[routePath] = authHandler
@@ -84,8 +98,8 @@ class McpAuthMiddleware {
         const firstRoute = Array.from( this.#routeConfigs.keys() )[0]
         const firstConfig = this.#routeConfigs.get( firstRoute )
         
-        // Extract base redirect URI from resourceUri or use default
-        let baseRedirectUri = 'http://localhost:3000'
+        // Extract base redirect URI from resourceUri or use configured baseUrl
+        let baseRedirectUri = this.#baseUrl
         if( firstConfig.resourceUri ) {
             const url = new URL( firstConfig.resourceUri )
             baseRedirectUri = `${url.protocol}//${url.host}`
@@ -116,7 +130,8 @@ class McpAuthMiddleware {
         // Create MCP Discovery Handler for .well-known endpoints
         this.#discoveryHandler = McpOAuthDiscoveryHandler.create( { 
             routes: validatedRoutes, 
-            silent: this.#silent 
+            silent: this.#silent,
+            baseUrl: this.#baseUrl 
         } )
         
         if( !this.#silent ) {
@@ -189,7 +204,7 @@ class McpAuthMiddleware {
                 // Default values
                 authFlow: config.authFlow || 'authorization-code',
                 requiredScopes: config.requiredScopes || [ 'openid', 'profile' ],
-                forceHttps: config.forceHttps !== false, // Default to true for OAuth 2.1 compliance
+                forceHttps: config.forceHttps !== undefined ? config.forceHttps : (this.#forceHttps !== undefined ? this.#forceHttps : true), // Global setting or route-specific, default to true for OAuth 2.1 compliance
                 requiredRoles: config.requiredRoles || [],
                 allowAnonymous: config.allowAnonymous || false
             }
@@ -799,6 +814,13 @@ class McpAuthMiddleware {
         this.#log( `📊 Summary: ${routeCount} route${routeCount !== 1 ? 's' : ''} configured across ${realmCount} realm${realmCount !== 1 ? 's' : ''}` )
         this.#log( '' )
         
+        // Display global configuration
+        this.#log( '🔧 Global Configuration:' )
+        this.#log( `   ├─ Base URL:     ${this.#baseUrl}` )
+        this.#log( `   ├─ Force HTTPS:  ${this.#forceHttps !== undefined ? this.#forceHttps : 'auto'}` )
+        this.#log( `   └─ Silent Mode:  ${this.#silent}` )
+        this.#log( '' )
+        
         // Display each route configuration
         let routeIndex = 1
         this.#routeConfigs.forEach( ( config, routePath ) => {
@@ -811,10 +833,8 @@ class McpAuthMiddleware {
 
 
     #displayRouteDetails( { config, routePath, index } ) {
-        // Get base URL from config or use defaults
-        const baseUrl = config.resourceUri ? 
-            config.resourceUri.replace( routePath, '' ).replace( /\/$/, '' ) : 
-            'http://localhost:3000'
+        // Use configured global baseUrl for display consistency
+        const baseUrl = this.#baseUrl
         
         const isOAuthRoute = config.authType && config.authType.includes( 'oauth' )
         
@@ -825,6 +845,10 @@ class McpAuthMiddleware {
             // OAuth-specific details
             this.#log( `   ├─ Provider:     ${config.providerUrl}` )
             this.#log( `   ├─ Client ID:    ${config.clientId}` )
+            
+            // Display protocol information
+            const protocol = baseUrl.startsWith('https://') ? 'HTTPS' : 'HTTP'
+            this.#log( `   ├─ Protocol:     🔗 ${protocol}` )
             this.#log( `   ├─ Auth Flow:    ${config.authFlow}` )
             
             // Display required scopes
@@ -837,6 +861,11 @@ class McpAuthMiddleware {
             const securityFlags = []
             if( config.allowAnonymous ) securityFlags.push( '🟡 Anonymous allowed' )
             if( config.authFlow === 'authorization-code' ) securityFlags.push( '🟢 PKCE required' )
+            
+            // Add forceHttps status
+            if( config.forceHttps !== undefined ) {
+                securityFlags.push( config.forceHttps ? '🟢 HTTPS enforced' : '🟡 HTTP allowed' )
+            }
             
             if( securityFlags.length > 0 ) {
                 this.#log( `   ├─ Security:     ${securityFlags.join( ', ' )}` )
@@ -918,6 +947,32 @@ class McpAuthMiddleware {
         }
         
         return false
+    }
+
+
+    #resolveBaseUrl( { baseUrl, forceHttps } ) {
+        // Parse the baseUrl (which now always has a default value)
+        try {
+            const url = new URL( baseUrl )
+            
+            // Override protocol if forceHttps is specified
+            if( forceHttps === true && url.protocol === 'http:' ) {
+                url.protocol = 'https:'
+            } else if( forceHttps === false && url.protocol === 'https:' ) {
+                url.protocol = 'http:'
+            }
+            
+            // Return without trailing slash
+            return `${url.protocol}//${url.host}`
+        } catch( error ) {
+            // This should not happen with proper validation, but keep as safety net
+            Logger.warn( { 
+                silent: this.#silent, 
+                message: `Invalid baseUrl provided: ${baseUrl}, using fallback` 
+            } )
+            const protocol = forceHttps === true ? 'https' : 'http'
+            return `${protocol}://localhost:3000`
+        }
     }
 
 
@@ -1084,9 +1139,8 @@ class McpAuthMiddleware {
 
 
     #deriveResourceUri( { routePath } ) {
-        // For testing, return localhost URIs
-        // In production, this would be derived from the actual host
-        return `http://localhost:3000${routePath}`
+        // Use configured baseUrl instead of hardcoded localhost
+        return `${this.#baseUrl}${routePath}`
     }
 
 

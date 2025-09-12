@@ -11,13 +11,13 @@ class McpAuthMiddleware {
     }
 
 
-    static async create( { routes, silent = false } ) {
-        const { status, messages } = Validation.validationCreate( { routes, silent } )
+    static async create( { routes, silent = false, baseUrl = 'http://localhost:3000', forceHttps = false } ) {
+        const { status, messages } = Validation.validationCreate( { routes, silent, baseUrl, forceHttps } )
         if( !status ) {
             throw new Error( `Validation failed: ${messages.join( ', ' )}` )
         }
 
-        const impl = await McpAuthMiddlewareImpl.create( { routes, silent } )
+        const impl = await McpAuthMiddlewareImpl.create( { routes, silent, baseUrl, forceHttps } )
         return new McpAuthMiddleware( impl )
     }
 
