@@ -1,6 +1,6 @@
 {
     "name": "mcp-auth-middleware",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "description": "Multi-realm OAuth 2.1 authentication middleware for MCP servers with Auth0 and Keycloak support",
     "main": "./src/index.mjs",
     "type": "module",
