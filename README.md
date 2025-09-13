@@ -43,11 +43,16 @@ const middleware = await McpAuthMiddleware.create({
             clientId: 'your-client-id',
             clientSecret: 'your-client-secret',
             scope: 'openid profile email',
-            audience: 'https://your-api.example.com'
+            audience: 'https://your-api.example.com',
+            realm: 'api-realm',
+            authFlow: 'authorization_code',
+            requiredScopes: ['openid', 'profile', 'email'],
+            requiredRoles: ['user']
         },
         '/api/simple': {
             authType: 'staticBearer',
-            token: 'your-secure-token-here'
+            token: 'your-secure-token-here',
+            realm: 'simple-realm'
         }
     }
 })
@@ -71,21 +76,30 @@ OAuth 2.1 implementation with Auth0 provider support.
     clientId: 'your-auth0-client-id',
     clientSecret: 'your-auth0-client-secret',
     scope: 'openid profile email',
-    audience: 'https://your-api.example.com'
+    audience: 'https://your-api.example.com',
+    realm: 'api-realm',
+    authFlow: 'authorization_code',
+    requiredScopes: ['openid', 'profile', 'email'],
+    requiredRoles: ['user']
 }
 ```
 
 **Required fields:**
-- `providerUrl` - Auth0 domain URL
+- `authType` - Must be 'oauth21_auth0'
+- `providerUrl` - Auth0 domain URL (must contain 'auth0.com')
 - `clientId` - Auth0 application client ID
 - `clientSecret` - Auth0 application client secret
-- `scope` - OAuth scopes to request
-- `audience` - Auth0 API audience identifier
+- `scope` - OAuth scopes to request (string)
+- `audience` - Auth0 API audience identifier (string)
+- `realm` - Security realm identifier
+- `authFlow` - OAuth flow type (typically 'authorization_code')
+- `requiredScopes` - Array of required scopes for access
+- `requiredRoles` - Array of required roles for access
 
 **Optional fields:**
 - `redirectUri` - Custom OAuth redirect URI
-- `requiredScopes` - Array of required scopes for access
 - `forceHttps` - Enforce HTTPS (default: true)
+- `resourceUri` - Resource URI for OAuth resource indicators
 
 ### staticBearer
 
@@ -95,12 +109,15 @@ Simple static Bearer token authentication.
 ```javascript
 {
     authType: 'staticBearer',
-    token: 'your-secure-token-minimum-8-chars'
+    token: 'your-secure-token-minimum-8-chars',
+    realm: 'bearer-realm'
 }
 ```
 
 **Required fields:**
+- `authType` - Must be 'staticBearer'
 - `token` - Static Bearer token (minimum 8 characters, no "Bearer" prefix)
+- `realm` - Security realm identifier
 
 ## Configuration
 
@@ -115,15 +132,21 @@ const middleware = await McpAuthMiddleware.create({
             clientId: 'admin-client-id',
             clientSecret: 'admin-secret',
             scope: 'openid profile email admin:read',
-            audience: 'https://api.example.com/admin'
+            audience: 'https://api.example.com/admin',
+            realm: 'admin-realm',
+            authFlow: 'authorization_code',
+            requiredScopes: ['openid', 'profile', 'email', 'admin:read'],
+            requiredRoles: ['admin']
         },
         '/api/public': {
             authType: 'staticBearer',
-            token: 'public-api-token-12345678'
+            token: 'public-api-token-12345678',
+            realm: 'public-realm'
         },
         '/api/internal': {
             authType: 'staticBearer',
-            token: 'internal-secure-token-87654321'
+            token: 'internal-secure-token-87654321',
+            realm: 'internal-realm'
         }
     },
     silent: false

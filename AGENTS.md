@@ -12,7 +12,8 @@ This guide provides AI agents with essential information for working with the OA
 ## Key Documentation
 
 ### 📖 Technical Documentation
-- **[src/OAUTH_MCP_MIDDLEWARE.md](./src/OAUTH_MCP_MIDDLEWARE.md)** - Complete technical specifications, architecture, RFC compliance, and implementation details
+- **[src/MCP_AUTH_MIDDLEWARE.md](./src/MCP_AUTH_MIDDLEWARE.md)** - Complete technical specifications, architecture, RFC compliance, and implementation details
+- **[src/AUTH_TYPE.md](./src/AUTH_TYPE.md)** - AuthType system documentation
 
 ### 📋 User Documentation  
 - **[README.md](./README.md)** - Minimal usage guide with installation, basic configuration, and API reference
