@@ -144,11 +144,7 @@ describe('OAuth21Auth0Provider', () => {
             const result = provider.generateEndpoints({ config: mockConfig })
 
             expect(result.endpoints).toEqual({
-                // Endpoints for OAuthFlowHandler (with URL suffix)
-                authorizationUrl: 'https://tenant.auth0.com/authorize',
-                tokenUrl: 'https://tenant.auth0.com/oauth/token',
-                deviceAuthorizationUrl: 'https://tenant.auth0.com/oauth/device/code',
-                // Endpoints for discovery and other purposes (with Endpoint suffix)
+                // OAuth 2.1 endpoints (RFC naming convention)
                 authorizationEndpoint: 'https://tenant.auth0.com/authorize',
                 tokenEndpoint: 'https://tenant.auth0.com/oauth/token',
                 deviceAuthorizationEndpoint: 'https://tenant.auth0.com/oauth/device/code',

@@ -39,9 +39,9 @@ class OAuthFlowHandler {
                 forceHttps: config.forceHttps,
                 resourceUri: config.resourceUri,
                 // URLs will be handled by AuthType handlers
-                authorizationEndpoint: config.authorizationUrl,
-                tokenEndpoint: config.tokenUrl,
-                deviceAuthorizationEndpoint: config.deviceAuthorizationUrl
+                authorizationEndpoint: config.authorizationEndpoint,
+                tokenEndpoint: config.tokenEndpoint,
+                deviceAuthorizationEndpoint: config.deviceAuthorizationEndpoint
             }
             
             handler.#routeConfigs.set( routePath, normalizedConfig )

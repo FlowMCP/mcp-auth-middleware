@@ -32,12 +32,7 @@ class OAuth21Auth0Provider {
         const { providerUrl, tokenEndpoint, userInfoEndpoint } = config
 
         const endpoints = {
-            // Endpoints for OAuthFlowHandler (with URL suffix)
-            authorizationUrl: `${providerUrl}/authorize`,
-            tokenUrl: tokenEndpoint || `${providerUrl}/oauth/token`,
-            deviceAuthorizationUrl: `${providerUrl}/oauth/device/code`,
-
-            // Endpoints for discovery and other purposes (with Endpoint suffix)
+            // OAuth 2.1 endpoints (RFC naming convention)
             authorizationEndpoint: `${providerUrl}/authorize`,
             tokenEndpoint: tokenEndpoint || `${providerUrl}/oauth/token`,
             deviceAuthorizationEndpoint: `${providerUrl}/oauth/device/code`,
