@@ -350,7 +350,7 @@ class McpAuthMiddleware {
             const config = this.#routeConfigs.get( routePath )
             
             // Resource parameter for audience binding (RFC 8707)
-            const resourceUri = `${req.protocol}://${req.get( 'host' )}${routePath}`
+            const resourceUri = this.#generateURL( { req, routePath, path: routePath } )
             
             const { authorizationUrl, state, routePath: returnedRoutePath } = 
                 sharedHelpers.oauthFlowHandler.initiateAuthorizationCodeFlowForRoute( {
@@ -399,7 +399,7 @@ class McpAuthMiddleware {
             return res.status( 400 ).json( {
                 error: error,
                 error_description: error_description || 'Authorization failed',
-                login_url: `${req.protocol}://${req.get( 'host' )}${routePath}/auth/login`
+                login_url: this.#generateURL( { req, routePath, path: `${routePath}/auth/login` } )
             } )
         }
         
@@ -461,7 +461,7 @@ class McpAuthMiddleware {
 
     #handleProtectedResourceMetadata( { req, res, routePath } ) {
         const config = this.#routeConfigs.get( routePath )
-        const baseUrl = `${req.protocol}://${req.get( 'host' )}`
+        const baseUrl = this.#generateURL( { req, routePath } )
         const resourceUri = `${baseUrl}${routePath}`
         
         // RFC 9728 Protected Resource Metadata - Complete Implementation
@@ -522,10 +522,7 @@ class McpAuthMiddleware {
 
     #handleRouteDiscovery( { req, res, routePath } ) {
         const config = this.#routeConfigs.get( routePath )
-        
-        // FIX: Respect forceHttps setting when generating URLs
-        const protocol = config.forceHttps ? 'https' : req.protocol
-        const baseUrl = `${protocol}://${req.get( 'host' )}`
+        const baseUrl = this.#generateURL( { req, routePath } )
         
         res.json( {
             route: routePath,
@@ -726,7 +723,7 @@ class McpAuthMiddleware {
     #sendUnauthorized( { res, routePath, reason } ) {
         const config = this.#routeConfigs.get( routePath )
         const isOAuthRoute = config.authType && config.authType.includes( 'oauth' )
-        const baseUrl = `${res.req.protocol}://${res.req.get( 'host' )}`
+        const baseUrl = this.#generateURL( { req: res.req, routePath } )
         
         // Map internal error codes to user-friendly messages
         let message = reason
@@ -771,7 +768,7 @@ class McpAuthMiddleware {
 
     #sendForbidden( { res, routePath, reason } ) {
         const config = this.#routeConfigs.get( routePath )
-        const baseUrl = `${res.req.protocol}://${res.req.get( 'host' )}`
+        const baseUrl = this.#generateURL( { req: res.req, routePath } )
         const prmUrl = `${baseUrl}/.well-known/oauth-protected-resource${routePath}`
         
         // RFC 9728 compliant 403 response with WWW-Authenticate header
@@ -976,6 +973,18 @@ class McpAuthMiddleware {
             const protocol = forceHttps === true ? 'https' : 'http'
             return `${protocol}://localhost:3000`
         }
+    }
+
+
+    #generateURL( { req, routePath = null, path = '' } ) {
+        // Get route-specific config if routePath is provided
+        const config = routePath ? this.#routeConfigs.get( routePath ) : null
+        
+        // Determine protocol: route-specific forceHttps > global forceHttps > req.protocol
+        const forceHttps = config?.forceHttps ?? this.#forceHttps
+        const protocol = forceHttps ? 'https' : req.protocol
+        
+        return `${protocol}://${req.get( 'host' )}${path}`
     }
 
 
