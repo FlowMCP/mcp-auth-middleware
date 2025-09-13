@@ -4,10 +4,10 @@ This guide provides AI agents with essential information for working with the OA
 
 ## Repository Overview
 
-**Purpose**: Multi-realm OAuth 2.1 middleware for securing Model Context Protocol (MCP) server endpoints
+**Purpose**: OAuth 2.1 middleware for securing Model Context Protocol (MCP) server endpoints
 **Transport**: HTTP + SSE (Server-Sent Events) only
 **Security**: OAuth 2.1 with PKCE, Bearer tokens, HTTPS enforcement
-**Architecture**: Express-compatible middleware with route-to-realm mapping
+**Architecture**: Express-compatible middleware with AuthType-based authentication
 
 ## Key Documentation
 
@@ -28,18 +28,18 @@ This guide provides AI agents with essential information for working with the OA
 - **[src/task/Validation.mjs](./src/task/Validation.mjs)** - Input validation logic
 
 ### Helper Modules
-- **[src/helpers/](./src/helpers/)** - KeycloakClient, TokenValidator, OAuthFlowHandler, PKCEGenerator
+- **[src/helpers/](./src/helpers/)** - OAuthFlowHandler, PKCEGenerator, Logger
 
 ### Test Suite
 - **73 unit tests** with comprehensive coverage
-- **Multi-realm scenarios** in `tests/unit/multi-realm/`
+- **AuthType scenarios** in `tests/unit/`
 - **RFC compliance tests** for OAuth 2.1, RFC 8414, 9728, 8707
 
 ## Important Constraints
 
 ### ⚠️ Critical Rules
 1. **Single Entry Point**: All imports must go through `src/index.mjs`
-2. **No Single-Realm API**: Only multi-realm configuration supported
+2. **AuthType Required**: All routes must specify authType (oauth21_auth0 or staticBearer)
 3. **Validation Required**: All public methods must validate inputs
 4. **Transport Limitation**: HTTP+SSE only, no stdio support
 5. **OAuth 2.1 Only**: No other authentication methods supported
@@ -59,8 +59,6 @@ src/
 │   ├── McpAuthMiddleware.mjs   # Core implementation
 │   └── Validation.mjs        # Input validation
 └── helpers/
-    ├── KeycloakClient.mjs
-    ├── TokenValidator.mjs
     ├── OAuthFlowHandler.mjs
     └── PKCEGenerator.mjs
 ```
@@ -74,7 +72,6 @@ const middleware = await McpAuthMiddleware.create({
         '/route': {
             authType: 'oauth21_auth0', // Auth type identifier
             providerUrl: 'string',     // Provider base URL
-            realm: 'string',           // Provider realm
             clientId: 'string',
             clientSecret: 'string',
             requiredScopes: ['array'],
@@ -89,7 +86,6 @@ const middleware = await McpAuthMiddleware.create({
 - `.create({ routes, silent? })` - Create middleware instance
 - `.router()` - Get Express router with OAuth endpoints
 - `.getRoutes()` - Get configured routes array
-- `.getRealms()` - Get realm configurations
 - `.getRouteConfig({ routePath })` - Get specific route config
 
 ### Testing Commands
@@ -117,9 +113,9 @@ npm run test:coverage:src   # Run with coverage report
 - **Problem**: Direct imports from `src/task/` or `src/helpers/`
 - **Solution**: Always import from `src/index.mjs`
 
-### ❌ Single-Realm Configuration
-- **Problem**: Using old single-realm API pattern
-- **Solution**: Wrap in `routes` object
+### ❌ Missing AuthType Configuration
+- **Problem**: Routes without authType specification
+- **Solution**: Add `authType: 'oauth21_auth0'` or `authType: 'staticBearer'`
 
 ### ❌ Missing Validation
 - **Problem**: Calling implementation methods directly
@@ -160,17 +156,17 @@ const credentials = TestUtils.getEnvParams( {
 
 - **Node.js 22** with ES modules (.mjs)
 - **Express.js** for HTTP server
-- **Multi-Provider Support**: Auth0, Keycloak (extensible)
+- **Multi-AuthType Support**: oauth21_auth0, staticBearer
 - **Jest** for testing
 - **OAuth 2.1** security profile
 - **RFC 8414, 9728, 8707** compliance
 
 ## Performance Characteristics
 
-- **Startup**: <100ms for 3 realms
+- **Startup**: <100ms for 3 routes
 - **Memory**: ~0.13MB per instance  
 - **Latency**: ~1-2ms token validation
-- **JWKS Caching**: 5 minute TTL per realm
+- **JWKS Caching**: 5 minute TTL per provider
 
 ---
 

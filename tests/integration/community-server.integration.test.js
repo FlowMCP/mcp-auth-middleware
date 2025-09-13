@@ -32,7 +32,11 @@ describe( 'Community Server Integration', () => {
                     clientId: 'test-client',
                     clientSecret: 'test-secret',
                     scope: 'openid mcp:access',
-                    audience: 'http://localhost:3000/mcp'
+                    audience: 'http://localhost:3000/mcp',
+                    realm: 'test-realm',
+                    authFlow: 'authorization_code',
+                    requiredScopes: [ 'openid', 'mcp:access' ],
+                    requiredRoles: [ 'user' ]
                 },
                 '/api': {
                     authType: 'oauth21_auth0',
@@ -40,7 +44,11 @@ describe( 'Community Server Integration', () => {
                     clientId: 'api-client',
                     clientSecret: 'api-secret',
                     scope: 'openid api:read api:write',
-                    audience: 'http://localhost:3000/api'
+                    audience: 'http://localhost:3000/api',
+                    realm: 'api-realm',
+                    authFlow: 'authorization_code',
+                    requiredScopes: [ 'openid', 'api:read', 'api:write' ],
+                    requiredRoles: [ 'user' ]
                 }
             },
             silent: true
@@ -136,24 +144,24 @@ describe( 'Community Server Integration', () => {
             // Should have different realm configurations
             expect( mcpConfig.realm ).toBe( 'test-realm' )
             expect( apiConfig.realm ).toBe( 'api-realm' )
-            
-            // Should have different scope requirements
+
+            // Should have different scope requirements (OIDC standard scopes filtered out)
             expect( mcpConfig.requiredScopes ).toEqual( ['mcp:access'] )
             expect( apiConfig.requiredScopes ).toEqual( ['api:read', 'api:write'] )
         } )
         
-        test( 'route-to-realm mapping is correctly configured', () => {
+        test( 'route mapping is correctly configured', () => {
             const routes = middleware.getRoutes()
-            const realms = middleware.getRealms()
-            
+
             expect( routes ).toEqual( ['/mcp', '/api'] )
-            expect( realms ).toHaveLength( 2 )
-            
-            const mcpRealm = realms.find( r => r.route === '/mcp' )
-            const apiRealm = realms.find( r => r.route === '/api' )
-            
-            expect( mcpRealm.realm ).toBe( 'test-realm' )
-            expect( apiRealm.realm ).toBe( 'api-realm' )
+
+            const mcpConfig = middleware.getRouteConfig( { routePath: '/mcp' } )
+            const apiConfig = middleware.getRouteConfig( { routePath: '/api' } )
+
+            expect( mcpConfig.authType ).toBe( 'oauth21_auth0' )
+            expect( apiConfig.authType ).toBe( 'oauth21_auth0' )
+            expect( mcpConfig.audience ).toBe( 'http://localhost:3000/mcp' )
+            expect( apiConfig.audience ).toBe( 'http://localhost:3000/api' )
         } )
     } )
     
@@ -170,7 +178,11 @@ describe( 'Community Server Integration', () => {
                         clientId: 'mcp-client',
                         clientSecret: 'mcp-secret',
                         scope: 'openid mcp:access',
-                        audience: 'http://localhost:3000/'
+                        audience: 'http://localhost:3000/',
+                        realm: 'root-realm',
+                        authFlow: 'authorization_code',
+                        requiredScopes: [ 'openid', 'mcp:access' ],
+                        requiredRoles: [ 'user' ]
                     }
                 },
                 silent: true
@@ -199,7 +211,11 @@ describe( 'Community Server Integration', () => {
                         clientId: 'legacy-client',
                         clientSecret: 'legacy-secret',
                         scope: 'openid legacy:access',
-                        audience: 'http://localhost:3000/'
+                        audience: 'http://localhost:3000/',
+                        realm: 'legacy-realm',
+                        authFlow: 'authorization_code',
+                        requiredScopes: [ 'openid', 'legacy:access' ],
+                        requiredRoles: [ 'user' ]
                     }
                 },
                 silent: true
@@ -214,21 +230,21 @@ describe( 'Community Server Integration', () => {
     } )
     
     describe( 'Discovery Endpoints Integration', () => {
-        test( 'OAuth Authorization Server metadata includes all realms', () => {
-            const realms = middleware.getRealms()
-            
-            // Should aggregate information from both realms
-            expect( realms ).toHaveLength( 2 )
-            
-            const mcpRealm = realms.find( r => r.route === '/mcp' )
-            const apiRealm = realms.find( r => r.route === '/api' )
-            
-            expect( mcpRealm.providerUrl ).toBe( 'https://your-first-auth0-domain.auth0.com' )
-            expect( apiRealm.providerUrl ).toBe( 'https://your-first-auth0-domain.auth0.com' )
-            
-            // Each realm should have its own resource URI
-            expect( mcpRealm.resourceUri ).toBe( 'http://localhost:3000/mcp' )
-            expect( apiRealm.resourceUri ).toBe( 'http://localhost:3000/api' )
+        test( 'OAuth Authorization Server metadata includes all routes', () => {
+            const routes = middleware.getRoutes()
+
+            // Should have both routes configured
+            expect( routes ).toHaveLength( 2 )
+
+            const mcpConfig = middleware.getRouteConfig( { routePath: '/mcp' } )
+            const apiConfig = middleware.getRouteConfig( { routePath: '/api' } )
+
+            expect( mcpConfig.providerUrl ).toBe( 'https://your-first-auth0-domain.auth0.com' )
+            expect( apiConfig.providerUrl ).toBe( 'https://your-first-auth0-domain.auth0.com' )
+
+            // Each route should have its own audience URI
+            expect( mcpConfig.audience ).toBe( 'http://localhost:3000/mcp' )
+            expect( apiConfig.audience ).toBe( 'http://localhost:3000/api' )
         } )
         
         test( 'Protected Resource metadata is route-specific', () => {
@@ -239,7 +255,7 @@ describe( 'Community Server Integration', () => {
             expect( mcpConfig.resourceUri ).toBe( 'http://localhost:3000/mcp' )
             expect( apiConfig.resourceUri ).toBe( 'http://localhost:3000/api' )
             
-            // Scopes should be route-specific
+            // Scopes should be route-specific (OIDC standard scopes filtered out)
             expect( mcpConfig.requiredScopes ).toEqual( ['mcp:access'] )
             expect( apiConfig.requiredScopes ).toEqual( ['api:read', 'api:write'] )
         } )
@@ -277,7 +293,11 @@ describe( 'Community Server Integration', () => {
                         clientId: 'perf-client-1',
                         clientSecret: 'perf-secret-1',
                         scope: 'openid perf:test',
-                        audience: 'http://localhost:3000/perf1'
+                        audience: 'http://localhost:3000/perf1',
+                        realm: 'perf-realm-1',
+                        authFlow: 'authorization_code',
+                        requiredScopes: [ 'openid', 'perf:test' ],
+                        requiredRoles: [ 'user' ]
                     },
                     '/perf2': {
                         authType: 'oauth21_auth0',
@@ -285,7 +305,11 @@ describe( 'Community Server Integration', () => {
                         clientId: 'perf-client-2',
                         clientSecret: 'perf-secret-2',
                         scope: 'openid perf:test',
-                        audience: 'http://localhost:3000/perf2'
+                        audience: 'http://localhost:3000/perf2',
+                        realm: 'perf-realm-2',
+                        authFlow: 'authorization_code',
+                        requiredScopes: [ 'openid', 'perf:test' ],
+                        requiredRoles: [ 'user' ]
                     }
                 },
                 silent: true

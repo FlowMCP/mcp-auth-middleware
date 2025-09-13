@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals'
 import { OAuth21Auth0Provider } from '../../../../src/authTypes/oauth21_auth0/OAuth21Auth0Provider.mjs'
+import { completeOAuth21Auth0Config, minimalOAuth21Auth0Config } from '../../../helpers/oauth21-auth0-template.mjs'
 
 describe('OAuth21Auth0Provider', () => {
     let provider
@@ -7,11 +8,16 @@ describe('OAuth21Auth0Provider', () => {
 
     beforeEach(() => {
         mockConfig = {
+            authType: 'oauth21_auth0',
             providerUrl: 'https://tenant.auth0.com',
             clientId: 'test-client-id',
             clientSecret: 'test-client-secret',
             scope: 'openid profile email',
-            audience: 'https://api.example.com'
+            audience: 'https://api.example.com',
+            realm: 'test-realm',
+            authFlow: 'authorization_code',
+            requiredScopes: [ 'openid', 'profile', 'email' ],
+            requiredRoles: [ 'user' ]
         }
     })
 
@@ -90,53 +96,37 @@ describe('OAuth21Auth0Provider', () => {
             const result = provider.normalizeConfiguration({ config: mockConfig })
 
             expect(result.normalizedConfig).toEqual({
+                authType: 'oauth21_auth0',
                 providerUrl: 'https://tenant.auth0.com',
-                realm: 'oauth21-auth0',
                 clientId: 'test-client-id',
                 clientSecret: 'test-client-secret',
                 scope: 'openid profile email',
                 audience: 'https://api.example.com',
-                resourceUri: undefined,
+                realm: 'test-realm',
                 authFlow: 'authorization_code',
-                authType: 'oauth21_auth0'
+                requiredScopes: [ 'openid', 'profile', 'email' ],
+                requiredRoles: [ 'user' ]
             })
         })
 
-        test('applies default realm when not provided', () => {
-            const configWithoutRealm = { ...mockConfig }
-            delete configWithoutRealm.realm
+        test('preserves all provided configuration fields', () => {
+            const customConfig = {
+                ...mockConfig,
+                realm: 'custom-realm',
+                scope: 'custom:read custom:write',
+                additionalField: 'custom-value'
+            }
 
-            const result = provider.normalizeConfiguration({ config: configWithoutRealm })
-
-            expect(result.normalizedConfig.realm).toBe('oauth21-auth0')
-        })
-
-        test('preserves custom realm when provided', () => {
-            const configWithCustomRealm = { ...mockConfig, realm: 'custom-realm' }
-
-            const result = provider.normalizeConfiguration({ config: configWithCustomRealm })
+            const result = provider.normalizeConfiguration({ config: customConfig })
 
             expect(result.normalizedConfig.realm).toBe('custom-realm')
-        })
-
-        test('applies default scope when not provided', () => {
-            const configWithoutScope = { ...mockConfig }
-            delete configWithoutScope.scope
-
-            const result = provider.normalizeConfiguration({ config: configWithoutScope })
-
-            expect(result.normalizedConfig.scope).toBe('openid profile email')
-        })
-
-        test('preserves custom scope when provided', () => {
-            const configWithCustomScope = { ...mockConfig, scope: 'custom:read custom:write' }
-
-            const result = provider.normalizeConfiguration({ config: configWithCustomScope })
-
             expect(result.normalizedConfig.scope).toBe('custom:read custom:write')
+            expect(result.normalizedConfig.additionalField).toBe('custom-value')
+            expect(result.normalizedConfig.authFlow).toBe('authorization_code')
+            expect(result.normalizedConfig.authType).toBe('oauth21_auth0')
         })
 
-        test('includes resourceUri when provided', () => {
+        test('preserves resourceUri when provided', () => {
             const configWithResourceUri = { ...mockConfig, resourceUri: 'https://resource.example.com' }
 
             const result = provider.normalizeConfiguration({ config: configWithResourceUri })
@@ -154,6 +144,11 @@ describe('OAuth21Auth0Provider', () => {
             const result = provider.generateEndpoints({ config: mockConfig })
 
             expect(result.endpoints).toEqual({
+                // Endpoints for OAuthFlowHandler (with URL suffix)
+                authorizationUrl: 'https://tenant.auth0.com/authorize',
+                tokenUrl: 'https://tenant.auth0.com/oauth/token',
+                deviceAuthorizationUrl: 'https://tenant.auth0.com/oauth/device/code',
+                // Endpoints for discovery and other purposes (with Endpoint suffix)
                 authorizationEndpoint: 'https://tenant.auth0.com/authorize',
                 tokenEndpoint: 'https://tenant.auth0.com/oauth/token',
                 deviceAuthorizationEndpoint: 'https://tenant.auth0.com/oauth/device/code',

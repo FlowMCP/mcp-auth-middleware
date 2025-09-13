@@ -2,7 +2,7 @@
 
 [![Test](https://img.shields.io/github/actions/workflow/status/flowmcp/oauth-middleware/test-on-release.yml)]() ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Express-compatible multi-realm authentication middleware for securing MCP server endpoints with OAuth 2.1 and Bearer token support.
+Express-compatible authentication middleware for securing MCP server endpoints with OAuth 2.1 and Bearer token support.
 
 ## Table of Contents
 
@@ -20,8 +20,6 @@ Express-compatible multi-realm authentication middleware for securing MCP server
     - [.router()](#router)
     - [.getRoutes()](#getroutes)
     - [.getRouteConfig({ routePath })](#getrouteconfigroutepath)
-    - [.getRouteClient({ routePath })](#getrouteclientroutepath)
-    - [.getRealms()](#getrealms)
   - [Testing](#testing)
   - [License](#license)
 
@@ -165,20 +163,7 @@ Returns AuthType configuration for specific route path.
 
 **Returns:** Configuration object
 
-### .getRouteClient({ routePath })
 
-Returns the authentication client instance for specific route path.
-
-**Parameters:**
-- `routePath` - Route path string
-
-**Returns:** Client instance object
-
-### .getRealms()
-
-Returns array of configured realms across all routes.
-
-**Returns:** Array of realm objects
 
 ## Testing
 

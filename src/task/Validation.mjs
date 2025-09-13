@@ -86,16 +86,29 @@ class Validation {
                         struct['messages'].push( `Route "${routePath}": authType must be a string` )
                     } else {
                         // Validate authType configuration using AuthTypeValidator
-                        const authTypeValidation = AuthTypeValidator.validateAuthType( { 
-                            authType: config.authType, 
-                            config 
+                        const authTypeValidation = AuthTypeValidator.validateAuthType( {
+                            authType: config.authType,
+                            config
                         } )
-                        
+
                         if( !authTypeValidation.status ) {
                             authTypeValidation.messages.forEach( ( message ) => {
                                 struct['messages'].push( `Route "${routePath}": ${message}` )
                             } )
                         }
+                    }
+
+                    // Validate common route fields (previously had defaults)
+                    if( config.authFlow !== undefined && typeof config.authFlow !== 'string' ) {
+                        struct['messages'].push( `Route "${routePath}": authFlow must be a string` )
+                    }
+
+                    if( config.requiredScopes !== undefined && !Array.isArray( config.requiredScopes ) ) {
+                        struct['messages'].push( `Route "${routePath}": requiredScopes must be an array` )
+                    }
+
+                    if( config.requiredRoles !== undefined && !Array.isArray( config.requiredRoles ) ) {
+                        struct['messages'].push( `Route "${routePath}": requiredRoles must be an array` )
                     }
 
                 }

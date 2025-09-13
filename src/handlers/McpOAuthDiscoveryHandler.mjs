@@ -21,16 +21,31 @@ class McpOAuthDiscoveryHandler {
 
     generateAuthorizationServerMetadata( { routePath } ) {
         const routeConfig = this.#routes[ routePath ]
-        
+
         if( !routeConfig ) {
-            return { 
-                success: false, 
-                error: `Route ${routePath} not found` 
+            return {
+                success: false,
+                error: `Route ${routePath} not found`
             }
         }
 
         const { providerUrl, scope } = routeConfig
-        const scopes = scope ? scope.split( ' ' ) : [ 'openid', 'profile', 'email' ]
+
+        if( !providerUrl ) {
+            return {
+                success: false,
+                error: `Provider URL not configured for route ${routePath}`
+            }
+        }
+
+        if( !scope ) {
+            return {
+                success: false,
+                error: `Scope not configured for route ${routePath}`
+            }
+        }
+
+        const scopes = scope.split( ' ' )
 
         const metadata = {
             issuer: providerUrl,
@@ -40,12 +55,12 @@ class McpOAuthDiscoveryHandler {
             jwks_uri: `${providerUrl}/.well-known/jwks.json`,
             scopes_supported: scopes,
             response_types_supported: [ 'code' ],
-            response_modes_supported: [ 'query', 'fragment' ],
-            grant_types_supported: [ 'authorization_code', 'client_credentials', 'refresh_token' ],
+            response_modes_supported: [ 'query', 'form_post' ],
+            grant_types_supported: [ 'authorization_code' ],
             code_challenge_methods_supported: [ 'S256' ],
-            token_endpoint_auth_methods_supported: [ 'none', 'client_secret_post' ],
+            token_endpoint_auth_methods_supported: [ 'client_secret_basic', 'client_secret_post' ],
             subject_types_supported: [ 'public' ],
-            id_token_signing_alg_values_supported: [ 'RS256' ]
+            claims_supported: [ 'sub', 'iat', 'exp', 'aud', 'iss', 'scope' ]
         }
 
         if( !this.#silent ) {
@@ -73,10 +88,10 @@ class McpOAuthDiscoveryHandler {
         }
 
         const { providerUrl, audience, scope } = routeConfig
-        const scopes = scope ? scope.split( ' ' ) : [ 'openid', 'profile', 'email' ]
+        const scopes = scope.split( ' ' )
 
         const metadata = {
-            resource: audience || `${this.#baseUrl}${routePath}`,
+            resource: audience,
             authorization_servers: [ providerUrl ],
             scopes_supported: scopes,
             bearer_methods_supported: [ 'header' ],

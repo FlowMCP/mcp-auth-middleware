@@ -9,7 +9,8 @@ describe('StaticBearer Integration Tests', () => {
         routes: {
             '/api': {
                 authType: 'staticBearer',
-                token: 'integration-test-token-123456'
+                token: 'integration-test-token-123456',
+                realm: 'api-realm'
             }
         },
         silent: true
@@ -200,7 +201,11 @@ describe('StaticBearer Integration Tests', () => {
                         clientId: 'test-client-id',
                         clientSecret: 'test-client-secret',
                         scope: 'openid profile email',
-                        audience: 'https://api.example.com'
+                        audience: 'https://api.example.com',
+                        realm: 'test-realm',
+                        authFlow: 'authorization_code',
+                        requiredScopes: [ 'openid', 'profile', 'email' ],
+                        requiredRoles: [ 'user' ]
                     }
                 },
                 silent: true

@@ -57,6 +57,9 @@ const config = {
                 'clientSecret': firstRouteAuth0ClientSecret || 'your-first-route-client-secret',
                 'scope': 'openid profile email',
                 'audience': 'http://localhost:3000/first-route/sse',
+                'authFlow': 'authorization_code',
+                'requiredScopes': [ 'openid', 'profile', 'email' ],
+                'requiredRoles': [ 'user' ],
                 'resourceUri': null,
                 'forceHttps': true
             }

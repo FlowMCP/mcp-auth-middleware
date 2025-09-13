@@ -41,15 +41,23 @@ class AuthTypeFactory {
             const { OAuth21Auth0FlowHandler } = await import( handlerConfig.flowHandlerPath )
 
             const provider = new OAuth21Auth0Provider( { config, silent } )
-            const tokenValidator = new OAuth21Auth0TokenValidator( { config, silent } )
-            const flowHandler = new OAuth21Auth0FlowHandler( { config, silent } )
+
+            // Generate endpoints and integrate them into config
+            const { endpoints } = provider.generateEndpoints( { config } )
+            const enhancedConfig = {
+                ...config,
+                ...endpoints  // Add generated endpoints to config
+            }
+
+            const tokenValidator = new OAuth21Auth0TokenValidator( { config: enhancedConfig, silent } )
+            const flowHandler = new OAuth21Auth0FlowHandler( { config: enhancedConfig, silent } )
 
             const authHandler = {
                 authType: 'oauth21_auth0',
                 provider,
                 tokenValidator,
                 flowHandler,
-                config
+                config: enhancedConfig  // Use enhanced config with endpoints
             }
 
             return authHandler

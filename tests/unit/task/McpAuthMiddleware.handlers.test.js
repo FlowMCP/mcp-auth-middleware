@@ -4,6 +4,21 @@ import request from 'supertest'
 
 const { McpAuthMiddleware } = await import( '../../../src/index.mjs' )
 
+// Helper to create complete OAuth21 Auth0 config
+const createCompleteConfig = (overrides = {}) => ({
+    authType: 'oauth21_auth0',
+    providerUrl: 'https://tenant.auth0.com',
+    clientId: 'test-client-id',
+    clientSecret: 'test-client-secret',
+    scope: 'openid profile email api:read',
+    audience: 'https://api.example.com',
+    realm: 'test-realm',
+    authFlow: 'authorization_code',
+    requiredScopes: [ 'openid', 'profile', 'email', 'api:read' ],
+    requiredRoles: [ 'user' ],
+    ...overrides
+})
+
 
 describe( 'McpAuthMiddleware - HTTP Handlers', () => {
     
@@ -12,14 +27,7 @@ describe( 'McpAuthMiddleware - HTTP Handlers', () => {
     
     const testConfig = {
         routes: {
-            '/api': {
-                authType: 'oauth21_auth0',
-                providerUrl: 'https://tenant.auth0.com',
-                clientId: 'test-client-id',
-                clientSecret: 'test-client-secret',
-                scope: 'openid profile email api:read',
-                audience: 'https://api.example.com'
-            }
+            '/api': createCompleteConfig()
         },
         silent: true
     }
@@ -136,22 +144,20 @@ describe( 'McpAuthMiddleware - HTTP Handlers', () => {
         test( 'different routes have independent handlers', async () => {
             const multiRouteMiddleware = await McpAuthMiddleware.create( {
                 routes: {
-                    '/api': {
-                        authType: 'oauth21_auth0',
+                    '/api': createCompleteConfig({
                         providerUrl: 'https://api.auth0.com',
                         clientId: 'api-client-id',
                         clientSecret: 'api-client-secret',
                         scope: 'openid profile email api:read',
                         audience: 'https://api.example.com'
-                    },
-                    '/admin': {
-                        authType: 'oauth21_auth0',
+                    }),
+                    '/admin': createCompleteConfig({
                         providerUrl: 'https://admin.auth0.com',
                         clientId: 'admin-client-id',
                         clientSecret: 'admin-client-secret',
                         scope: 'openid profile email admin:full',
                         audience: 'https://admin.example.com'
-                    }
+                    })
                 },
                 silent: true
             } )

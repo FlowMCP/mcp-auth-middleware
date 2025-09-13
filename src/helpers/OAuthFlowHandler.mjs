@@ -23,25 +23,25 @@ class OAuthFlowHandler {
         
         // Initialize all route configurations
         Object.entries( routes ).forEach( ( [ routePath, config ] ) => {
+            // OAuthFlowHandler only supports oauth21_auth0 (staticBearer has no OAuth flow)
+            if( config.authType !== 'oauth21_auth0' ) {
+                throw new Error( `OAuthFlowHandler only supports oauth21_auth0, got: ${config.authType}` )
+            }
+
             const normalizedConfig = {
                 providerUrl: config.providerUrl,
                 realm: config.realm,
                 clientId: config.clientId,
                 clientSecret: config.clientSecret,
                 redirectUri: `${baseRedirectUri}${routePath}/auth/callback`,
-                authFlow: config.authFlow || 'authorization_code',
-                requiredScopes: config.requiredScopes || [],
+                authFlow: config.authFlow,
+                requiredScopes: config.requiredScopes,
                 forceHttps: config.forceHttps,
-                resourceUri: config.resourceUri || '',
-                authorizationEndpoint: config.authorizationUrl || (config.providerUrl.includes('auth0.com') ? 
-                    `${config.providerUrl}/authorize` : 
-                    `${config.providerUrl}/realms/${config.realm}/protocol/openid-connect/auth`),
-                tokenEndpoint: config.tokenUrl || (config.providerUrl.includes('auth0.com') ? 
-                    `${config.providerUrl}/oauth/token` : 
-                    `${config.providerUrl}/realms/${config.realm}/protocol/openid-connect/token`),
-                deviceAuthorizationEndpoint: config.providerUrl.includes('auth0.com') ? 
-                    `${config.providerUrl}/oauth/device/code` : 
-                    `${config.providerUrl}/realms/${config.realm}/protocol/openid-connect/auth/device`
+                resourceUri: config.resourceUri,
+                // URLs will be handled by AuthType handlers
+                authorizationEndpoint: config.authorizationUrl,
+                tokenEndpoint: config.tokenUrl,
+                deviceAuthorizationEndpoint: config.deviceAuthorizationUrl
             }
             
             handler.#routeConfigs.set( routePath, normalizedConfig )
@@ -87,26 +87,27 @@ class OAuthFlowHandler {
     }
 
 
-    static create( { providerUrl, realm, clientId, clientSecret, redirectUri, silent = false } ) {
+    static create( { providerUrl, realm, clientId, clientSecret, redirectUri, authType = 'oauth21_auth0', silent = false, authorizationEndpoint = null, tokenEndpoint = null, deviceAuthorizationEndpoint = null } ) {
         const handler = new OAuthFlowHandler( { silent } )
-        
+
+        // Require oauth21_auth0 authType
+        if( authType !== 'oauth21_auth0' ) {
+            throw new Error( `OAuthFlowHandler.create() only supports oauth21_auth0, got: ${authType}` )
+        }
+
         const config = {
             providerUrl,
             realm,
             clientId,
             clientSecret,
             redirectUri,
-            authorizationEndpoint: providerUrl.includes('auth0.com') ? 
-                `${providerUrl}/authorize` : 
-                `${providerUrl}/realms/${realm}/protocol/openid-connect/auth`,
-            tokenEndpoint: providerUrl.includes('auth0.com') ? 
-                `${providerUrl}/oauth/token` : 
-                `${providerUrl}/realms/${realm}/protocol/openid-connect/token`,
-            deviceAuthorizationEndpoint: providerUrl.includes('auth0.com') ? 
-                `${providerUrl}/oauth/device/code` : 
-                `${providerUrl}/realms/${realm}/protocol/openid-connect/auth/device`
+            authType,
+            // URLs provided by AuthType handlers
+            authorizationEndpoint,
+            tokenEndpoint,
+            deviceAuthorizationEndpoint
         }
-        
+
         // For backwards compatibility - store as single route
         handler.#routeConfigs.set( 'default', config )
 

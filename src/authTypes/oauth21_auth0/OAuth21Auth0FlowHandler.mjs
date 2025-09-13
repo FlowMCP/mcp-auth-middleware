@@ -22,20 +22,24 @@ class OAuth21Auth0FlowHandler {
 
 
     static createForAuth0( { config, redirectUri, silent = false } ) {
+        const defaultRedirectUri = redirectUri ||
+            config.redirectUri ||
+            `${config.baseUrl || 'http://localhost:3000'}/auth/callback`
+
         const enhancedConfig = {
             ...config,
-            redirectUri: redirectUri || `${config.baseUrl || config._baseUrl || 'http://localhost:3000'}/auth/callback`
+            redirectUri: defaultRedirectUri
         }
-        
+
         return new OAuth21Auth0FlowHandler( { config: enhancedConfig, silent } )
     }
 
 
     initiateAuthorizationCodeFlow( { scopes, audience, state } ) {
-        const authState = state || crypto.randomBytes( 16 ).toString( 'base64url' )
+        const authState = state || crypto.randomBytes(16).toString('hex')
         const { pair } = PKCEGenerator.generatePKCEPair()
-        
-        const effectiveScopes = scopes || this.#config.scope || 'openid profile email'
+
+        const effectiveScopes = scopes || this.#config.scope
         const effectiveAudience = audience || this.#config.audience
         
         const authRequest = {
@@ -52,7 +56,7 @@ class OAuth21Auth0FlowHandler {
         this.#authorizationRequests.set( authState, authRequest )
         
         const params = new URLSearchParams( {
-            response_type: this.#config.responseType || 'code',
+            response_type: 'code',
             client_id: this.#config.clientId,
             redirect_uri: this.#config.redirectUri,
             scope: effectiveScopes,
@@ -125,7 +129,7 @@ class OAuth21Auth0FlowHandler {
         if( effectiveScopes ) {
             params.append( 'scope', effectiveScopes )
         }
-        
+
         const effectiveAudience = audience || this.#config.audience
         if( effectiveAudience ) {
             params.append( 'audience', effectiveAudience )
@@ -233,22 +237,22 @@ class OAuth21Auth0FlowHandler {
 
 
     #initializeEndpoints() {
-        const { providerUrl } = this.#config
-        
+        const { providerUrl, tokenEndpoint, userInfoEndpoint } = this.#config
+
         this.#endpoints = {
             authorizationEndpoint: `${providerUrl}/authorize`,
-            tokenEndpoint: this.#config.tokenEndpoint || `${providerUrl}/oauth/token`,
+            tokenEndpoint: tokenEndpoint || `${providerUrl}/oauth/token`,
             deviceAuthorizationEndpoint: `${providerUrl}/oauth/device/code`,
             jwksUrl: `${providerUrl}/.well-known/jwks.json`,
-            userInfoUrl: this.#config.userInfoEndpoint || `${providerUrl}/userinfo`,
+            userInfoUrl: userInfoEndpoint || `${providerUrl}/userinfo`,
             introspectionUrl: `${providerUrl}/oauth/token/introspection`,
             discoveryUrl: `${providerUrl}/.well-known/openid_configuration`
         }
 
         if( !this.#silent ) {
-            Logger.info( { 
-                silent: this.#silent, 
-                message: `OAuth21Auth0FlowHandler initialized for provider: ${providerUrl}` 
+            Logger.info( {
+                silent: this.#silent,
+                message: `OAuth21Auth0FlowHandler initialized for provider: ${providerUrl}`
             } )
         }
     }

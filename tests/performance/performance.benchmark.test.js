@@ -33,6 +33,10 @@ describe( 'Performance Benchmarks', () => {
                     clientSecret: 'single-secret',
                     scope: 'openid single:access',
                     audience: 'http://localhost:3000',
+                    realm: 'single-realm',
+                    authFlow: 'authorization_code',
+                    requiredScopes: ['openid', 'single:access'],
+                    requiredRoles: ['user'],
                     forceHttps: true
                 }
             },
@@ -49,6 +53,10 @@ describe( 'Performance Benchmarks', () => {
                     clientSecret: 'api-secret',
                     scope: 'openid api:read api:write',
                     audience: 'http://localhost:3000/api',
+                    realm: 'api-realm',
+                    authFlow: 'authorization_code',
+                    requiredScopes: ['openid', 'api:read', 'api:write'],
+                    requiredRoles: ['user'],
                     forceHttps: true
                 },
                 '/admin': {
@@ -58,6 +66,10 @@ describe( 'Performance Benchmarks', () => {
                     clientSecret: 'admin-secret',
                     scope: 'openid admin:full',
                     audience: 'http://localhost:3000/admin',
+                    realm: 'admin-realm',
+                    authFlow: 'authorization_code',
+                    requiredScopes: ['openid', 'admin:full'],
+                    requiredRoles: ['admin'],
                     forceHttps: true
                 },
                 '/public': {
@@ -67,6 +79,10 @@ describe( 'Performance Benchmarks', () => {
                     clientSecret: 'public-secret',
                     scope: 'openid public:basic',
                     audience: 'http://localhost:3000/public',
+                    realm: 'public-realm',
+                    authFlow: 'authorization_code',
+                    requiredScopes: ['openid', 'public:basic'],
+                    requiredRoles: ['user'],
                     forceHttps: true
                 }
             },
@@ -87,6 +103,10 @@ describe( 'Performance Benchmarks', () => {
                         clientSecret: 'test-secret',
                         scope: 'openid test:access',
                         audience: 'http://localhost:3000/test',
+                        realm: 'test-realm',
+                        authFlow: 'authorization_code',
+                        requiredScopes: ['openid', 'test:access'],
+                        requiredRoles: ['user'],
                         forceHttps: true
                     }
                 },
@@ -112,6 +132,10 @@ describe( 'Performance Benchmarks', () => {
                     clientSecret: `test-secret-${i}`,
                     scope: `openid realm${i}:access`,
                     audience: `http://localhost:3000/realm${i}`,
+                    realm: `realm-${i}`,
+                    authFlow: 'authorization_code',
+                    requiredScopes: ['openid', `realm${i}:access`],
+                    requiredRoles: ['user'],
                     forceHttps: true
                 }
             }
@@ -128,9 +152,9 @@ describe( 'Performance Benchmarks', () => {
             expect( testMiddleware ).toBeDefined()
             expect( creationTime ).toBeLessThan( 15000 ) // Should scale linearly
             
-            // Verify all realms were configured
-            const configuredRealms = testMiddleware.getRealms()
-            expect( configuredRealms ).toHaveLength( realmCount )
+            // Verify all routes were configured
+            const configuredRoutes = testMiddleware.getRoutes()
+            expect( configuredRoutes ).toHaveLength( realmCount )
         }, 20000 )
     } )
     
@@ -220,16 +244,16 @@ describe( 'Performance Benchmarks', () => {
             expect( avgTime ).toBeLessThan( 1.0 ) // Should be reasonably fast < 1.0ms
         } )
         
-        test( 'getRealms() method performance', () => {
+        test( 'getRoutes() method performance', () => {
             const iterations = 10000
-            
+
             const startTime = process.hrtime.bigint()
             for( let i = 0; i < iterations; i++ ) {
-                const realms = multiRealmMiddleware.getRealms()
-                expect( realms ).toHaveLength( 3 )
+                const routes = multiRealmMiddleware.getRoutes()
+                expect( routes ).toHaveLength( 3 )
             }
             const endTime = process.hrtime.bigint()
-            
+
             const totalTime = Number( endTime - startTime ) / 1000000
             const avgTime = totalTime / iterations
             
@@ -278,6 +302,10 @@ describe( 'Performance Benchmarks', () => {
                                 clientSecret: `test-secret-${i}`,
                                 scope: `openid test${i}:access`,
                                 audience: `http://localhost:3000/test-${i}`,
+                                realm: `test-${i}-realm`,
+                                authFlow: 'authorization_code',
+                                requiredScopes: ['openid', `test${i}:access`],
+                                requiredRoles: ['user'],
                                 forceHttps: true
                             }
                         },

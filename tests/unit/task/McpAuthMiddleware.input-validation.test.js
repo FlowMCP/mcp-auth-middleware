@@ -11,7 +11,10 @@ describe( 'McpAuthMiddleware Input Validation', () => {
             clientId: 'test-client-id',
             clientSecret: 'test-client-secret',
             audience: 'test-audience',
-            scope: 'openid profile'
+            scope: 'openid profile',
+            authFlow: 'authorization_code',
+            requiredScopes: [ 'openid', 'profile' ],
+            requiredRoles: [ 'user' ]
         }
     }
 

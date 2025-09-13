@@ -7,6 +7,7 @@ global.fetch = mockFetch
 
 // Import modules after mocking
 const { OAuth21Auth0FlowHandler } = await import('../../../../src/authTypes/oauth21_auth0/OAuth21Auth0FlowHandler.mjs')
+import { completeOAuth21Auth0Config } from '../../../helpers/oauth21-auth0-template.mjs'
 
 describe('OAuth21Auth0FlowHandler', () => {
     let handler
@@ -14,13 +15,18 @@ describe('OAuth21Auth0FlowHandler', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
-        
+
         mockConfig = {
+            authType: 'oauth21_auth0',
             providerUrl: 'https://tenant.auth0.com',
             clientId: 'test-client-id',
             clientSecret: 'test-client-secret',
             scope: 'openid profile email',
             audience: 'https://api.example.com',
+            realm: 'test-realm',
+            authFlow: 'authorization_code',
+            requiredScopes: [ 'openid', 'profile', 'email' ],
+            requiredRoles: [ 'user' ],
             redirectUri: 'http://localhost:3000/auth/callback'
         }
     })

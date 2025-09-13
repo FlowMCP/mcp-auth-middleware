@@ -3,11 +3,11 @@ import jwt from 'jsonwebtoken'
 // Using native fetch (Node.js 22+)
 
 import { AuthTypeFactory } from '../core/AuthTypeFactory.mjs'
-import { DynamicClientRegistration } from '../helpers/DynamicClientRegistration.mjs'
+// DynamicClientRegistration removed - was Keycloak-specific
 import { Logger } from '../helpers/Logger.mjs'
 import { McpOAuthDiscoveryHandler } from '../handlers/McpOAuthDiscoveryHandler.mjs'
 import { OAuthFlowHandler } from '../helpers/OAuthFlowHandler.mjs'
-import { TokenValidator } from '../helpers/TokenValidator.mjs'
+// Legacy TokenValidator removed - only AuthType-specific validators used
 import { Validation } from './Validation.mjs'
 
 
@@ -59,12 +59,16 @@ class McpAuthMiddleware {
             throw new Error( 'No routes configured - at least one route is required' )
         }
         
-        // Validate all route configurations first
+        // Store already validated route configurations (validated in index.mjs)
         const validatedRoutes = {}
         Object.entries( routes ).forEach( ( [ routePath, config ] ) => {
-            const validatedConfig = this.#validateRouteConfig( { routePath, config } )
-            this.#routeConfigs.set( routePath, validatedConfig )
-            validatedRoutes[routePath] = validatedConfig
+            // Basic route path validation only
+            if( !routePath || !routePath.startsWith( '/' ) ) {
+                throw new Error( `Must start with "/" - Invalid route path: ${routePath}` )
+            }
+
+            this.#routeConfigs.set( routePath, config )
+            validatedRoutes[routePath] = config
         } )
 
         // Create AuthType-based handlers for all routes
@@ -78,29 +82,31 @@ class McpAuthMiddleware {
                     _baseUrl: this.#baseUrl 
                 }
                 
-                const authHandler = await AuthTypeFactory.createAuthHandler( { 
-                    authType: config.authType, 
+                const authHandler = await AuthTypeFactory.createAuthHandler( {
+                    authType: config.authType,
                     config: enhancedConfig,
-                    silent: this.#silent 
+                    silent: this.#silent
                 } )
                 authHandlers[routePath] = authHandler
+
+                // Update both validatedRoutes and routeConfigs with enhanced config that includes generated endpoints
+                const finalConfig = authHandler.config || enhancedConfig
+                validatedRoutes[routePath] = finalConfig
+                this.#routeConfigs.set(routePath, finalConfig)
             } catch( error ) {
                 throw new Error( `Failed to create AuthType handler for route ${routePath}: ${error.message}` )
             }
         }
         
-        const tokenValidator = TokenValidator.createForMultiRealm( { 
-            routes: validatedRoutes,
-            silent: this.#silent
-        } )
+        // Legacy TokenValidator removed - AuthType handlers provide their own validators
         
         // Determine base redirect URI from first route
         const firstRoute = Array.from( this.#routeConfigs.keys() )[0]
         const firstConfig = this.#routeConfigs.get( firstRoute )
-        
+
         // Extract base redirect URI from resourceUri or use configured baseUrl
         let baseRedirectUri = this.#baseUrl
-        if( firstConfig.resourceUri ) {
+        if( firstConfig && firstConfig.resourceUri ) {
             const url = new URL( firstConfig.resourceUri )
             baseRedirectUri = `${url.protocol}//${url.host}`
         }
@@ -108,7 +114,7 @@ class McpAuthMiddleware {
         // Filter routes to only include OAuth-based AuthTypes for FlowHandler
         const oauthRoutes = Object.fromEntries(
             Object.entries( validatedRoutes )
-                .filter( ( [ route, config ] ) => config.authType && config.authType.includes( 'oauth' ) )
+                .filter( ( [ route, config ] ) => config && config.authType && config.authType.includes( 'oauth' ) )
         )
 
         let oauthFlowHandler = null
@@ -123,7 +129,6 @@ class McpAuthMiddleware {
         // Store shared helper instances (AuthType-based system)
         this.#routeClients.set( 'shared', {
             authHandlers,
-            tokenValidator,
             oauthFlowHandler
         } )
 
@@ -140,79 +145,6 @@ class McpAuthMiddleware {
     }
 
 
-    #validateRouteConfig( { routePath, config } ) {
-        if( !routePath || !routePath.startsWith( '/' ) ) {
-            throw new Error( `Must start with "/" - Invalid route path: ${routePath}` )
-        }
-        
-        // Use new Validation system for authType-based or legacy validation
-        const validationResult = Validation.validationCreate( { 
-            routes: { [routePath]: config },
-            silent: this.#silent 
-        } )
-        
-        if( !validationResult.status ) {
-            throw new Error( `Route validation failed: ${validationResult.messages.join( ', ' )}` )
-        }
-        
-        // Use AuthType-based configuration or legacy provider detection
-        let finalConfig
-        
-        if( config.authType ) {
-            // New AuthType-based approach
-            finalConfig = {
-                ...config,
-                routePath,
-                realm: this.#deriveRealmName( { routePath } ),
-                authFlow: config.authFlow || 'authorization-code',
-                requiredRoles: config.requiredRoles || [],
-                allowAnonymous: config.allowAnonymous || false
-            }
-        } else {
-            // Legacy provider-based approach (backwards compatibility)
-            let baseUrl, authorizationUrl, tokenUrl, jwksUrl, userInfoUrl, introspectionUrl
-            
-            // Detect Auth0
-            if( config.providerUrl.includes( 'auth0.com' ) ) {
-                baseUrl = config.providerUrl
-                authorizationUrl = `${baseUrl}/authorize`
-                tokenUrl = `${baseUrl}/oauth/token`
-                jwksUrl = `${baseUrl}/.well-known/jwks.json`
-                userInfoUrl = `${baseUrl}/userinfo`
-                introspectionUrl = `${baseUrl}/oauth/token/introspection`
-            } else {
-                // Keycloak/standard OIDC
-                baseUrl = `${config.providerUrl}/realms/${config.realm}`
-                authorizationUrl = `${baseUrl}/protocol/openid-connect/auth`
-                tokenUrl = `${baseUrl}/protocol/openid-connect/token`
-                jwksUrl = `${baseUrl}/protocol/openid-connect/certs`
-                userInfoUrl = `${baseUrl}/protocol/openid-connect/userinfo`
-                introspectionUrl = `${baseUrl}/protocol/openid-connect/token/introspect`
-            }
-            
-            finalConfig = {
-                ...config,
-                routePath,
-                
-                // OAuth URLs (auto-generated if missing)
-                authorizationUrl: config.authorizationUrl || authorizationUrl,
-                tokenUrl: config.tokenUrl || tokenUrl,
-                jwksUrl: config.jwksUrl || jwksUrl,
-                userInfoUrl: config.userInfoUrl || userInfoUrl,
-                introspectionUrl: config.introspectionUrl || introspectionUrl,
-                
-                // Default values
-                authFlow: config.authFlow || 'authorization-code',
-                requiredScopes: config.requiredScopes || [ 'openid', 'profile' ],
-                forceHttps: config.forceHttps !== undefined ? config.forceHttps : (this.#forceHttps !== undefined ? this.#forceHttps : true), // Global setting or route-specific, default to true for OAuth 2.1 compliance
-                requiredRoles: config.requiredRoles || [],
-                allowAnonymous: config.allowAnonymous || false
-            }
-        }
-        
-        
-        return finalConfig
-    }
 
 
     #setupRouter() {
@@ -474,7 +406,7 @@ class McpAuthMiddleware {
             
             // Optional but recommended fields
             jwks_uri: config.jwksUrl,
-            scopes_supported: config.requiredScopes || [],
+            scopes_supported: config.requiredScopes,
             resource_documentation: `${baseUrl}${routePath}/discovery`,
             
             // Additional OAuth 2.1 and security information
@@ -485,9 +417,9 @@ class McpAuthMiddleware {
             route_info: {
                 path: routePath,
                 realm: config.realm,
-                auth_flows_supported: [ config.authFlow || 'authorization_code' ],
+                auth_flows_supported: [ config.authFlow ],
                 client_id: config.clientId,
-                required_roles: config.requiredRoles || []
+                required_roles: config.requiredRoles
             },
             
             // Links per RFC 9728
@@ -605,17 +537,13 @@ class McpAuthMiddleware {
         const authHandler = sharedHelpers.authHandlers[routePath]
         let validationResult
         
-        // Backwards-compatibility: Try AuthType-specific validator first, fallback to legacy
+        // AuthType-specific validation (only supported approach)
         if( authHandler && authHandler.tokenValidator && typeof authHandler.tokenValidator.validate === 'function' ) {
-            // New AuthType-specific validation
             validationResult = await authHandler.tokenValidator.validate( { token } )
-        } else if( sharedHelpers.tokenValidator && typeof sharedHelpers.tokenValidator.validateForRoute === 'function' ) {
-            // Legacy validation fallback
-            validationResult = await sharedHelpers.tokenValidator.validateForRoute( { token, routePath } )
         } else {
-            Logger.error( { 
-                silent: this.#silent, 
-                message: `No token validator found for route: ${routePath}` 
+            Logger.error( {
+                silent: this.#silent,
+                message: `No token validator found for route: ${routePath}. Ensure authType is oauth21_auth0 or staticBearer`
             } )
             return this.#sendUnauthorized( { res, routePath, reason: 'configuration_error' } )
         }
@@ -682,7 +610,7 @@ class McpAuthMiddleware {
     }
 
 
-    // Note: #validateAudienceBinding logic moved to TokenValidator.validateWithAudienceBinding
+    // Audience binding validation is handled by AuthType-specific token validators
 
 
     #checkAuthorization( { decoded, config } ) {
@@ -1098,22 +1026,6 @@ class McpAuthMiddleware {
     }
 
 
-    getRealms() {
-        const realms = []
-        
-        this.#routeConfigs.forEach( ( config, routePath ) => {
-            const realmData = {
-                route: routePath,
-                realm: this.#deriveRealmName( { routePath } ),
-                providerUrl: config.providerUrl,
-                resourceUri: this.#deriveResourceUri( { routePath } )
-            }
-            
-            realms.push( realmData )
-        } )
-        
-        return realms
-    }
 
 
     getRouteConfig( { routePath } ) {
@@ -1122,9 +1034,9 @@ class McpAuthMiddleware {
             return undefined
         }
         
-        // Add legacy compatibility properties
+        // Add dynamic properties while preserving all original config (including Entry-Point defaults)
         const configWithRealm = {
-            ...config,
+            ...config,  // Keep ALL original fields including Entry-Point defaults
             realm: this.#deriveRealmName( { routePath } ),
             resourceUri: this.#deriveResourceUri( { routePath } ),
             requiredScopes: this.#deriveRequiredScopes( { config } )
@@ -1158,7 +1070,7 @@ class McpAuthMiddleware {
 
     #deriveRequiredScopes( { config } ) {
         if( !config.scope ) {
-            return config.requiredScopes || []
+            return config.requiredScopes
         }
         
         // Parse scope string to extract non-OIDC scopes

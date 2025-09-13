@@ -58,13 +58,17 @@ class AuthTypeValidator {
 
     static #validateOAuth21Auth0Schema( { config } ) {
         const struct = { status: false, messages: [] }
-        
+
         const requiredFields = [
             [ 'providerUrl', 'string' ],
             [ 'clientId', 'string' ],
             [ 'clientSecret', 'string' ],
             [ 'scope', 'string' ],
-            [ 'audience', 'string' ]
+            [ 'audience', 'string' ],
+            [ 'realm', 'string' ],
+            [ 'authFlow', 'string' ],
+            [ 'requiredScopes', 'array' ],
+            [ 'requiredRoles', 'array' ]
         ]
 
         const missingFields = []
@@ -75,7 +79,9 @@ class AuthTypeValidator {
                 const value = config[ key ]
                 if( value === undefined || value === null ) {
                     missingFields.push( key )
-                } else if( typeof value !== type ) {
+                } else if( type === 'array' && !Array.isArray( value ) ) {
+                    typeErrors.push( `config.${key}: Must be an array` )
+                } else if( type !== 'array' && typeof value !== type ) {
                     typeErrors.push( `config.${key}: Must be a ${type}` )
                 }
             } )

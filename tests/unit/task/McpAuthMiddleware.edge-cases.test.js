@@ -17,21 +17,9 @@ jest.unstable_mockModule('../../../src/core/AuthTypeFactory.mjs', () => ({
     }
 }))
 
-jest.unstable_mockModule('../../../src/helpers/TokenValidator.mjs', () => ({
-    TokenValidator: {
-        createForMultiRealm: jest.fn().mockReturnValue({
-            validateForRoute: jest.fn()
-        })
-    }
-}))
+// TokenValidator.mjs wurde gelöscht - kein Mock nötig
 
-jest.unstable_mockModule('../../../src/helpers/OAuthFlowHandler.mjs', () => ({
-    OAuthFlowHandler: {
-        createForMultiRealm: jest.fn().mockReturnValue({
-            initiateAuthorizationCodeFlowForRoute: jest.fn()
-        })
-    }
-}))
+// OAuthFlowHandler.mjs - keine multi-realm Methoden mehr
 
 jest.unstable_mockModule('../../../src/task/Validation.mjs', () => ({
     Validation: {
@@ -42,8 +30,6 @@ jest.unstable_mockModule('../../../src/task/Validation.mjs', () => ({
 // Import after mocking
 const { McpAuthMiddleware } = await import('../../../src/task/McpAuthMiddleware.mjs')
 const { AuthTypeFactory } = await import('../../../src/core/AuthTypeFactory.mjs')
-const { TokenValidator } = await import('../../../src/helpers/TokenValidator.mjs')
-const { OAuthFlowHandler } = await import('../../../src/helpers/OAuthFlowHandler.mjs')
 const { Validation } = await import('../../../src/task/Validation.mjs')
 
 describe('McpAuthMiddleware Edge Cases', () => {
@@ -257,11 +243,7 @@ describe('McpAuthMiddleware Edge Cases', () => {
             const middleware = await McpAuthMiddleware.create({ routes, silent: true })
             
             expect(middleware).toBeDefined()
-            expect(OAuthFlowHandler.createForMultiRealm).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    baseRedirectUri: 'https://custom-domain.example.com'
-                })
-            )
+            // OAuthFlowHandler.createForMultiRealm wurde entfernt - keine multi-realm Unterstützung mehr
         })
 
         test('uses default baseRedirectUri when no resourceUri provided', async () => {
@@ -288,109 +270,54 @@ describe('McpAuthMiddleware Edge Cases', () => {
             const middleware = await McpAuthMiddleware.create({ routes, silent: true })
             
             expect(middleware).toBeDefined()
-            expect(OAuthFlowHandler.createForMultiRealm).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    baseRedirectUri: 'http://localhost:3000'
-                })
-            )
+            // OAuthFlowHandler.createForMultiRealm wurde entfernt - keine multi-realm Unterstützung mehr
         })
     })
 
-    describe('legacy provider detection edge cases', () => {
-        test('handles legacy Auth0 provider configuration (without authType)', async () => {
-            AuthTypeFactory.createAuthHandler.mockResolvedValue({
-                provider: { normalizeConfiguration: jest.fn().mockReturnValue({ config: {} }) },
-                tokenValidator: { validateToken: jest.fn() },
-                flowHandler: { initiateAuthFlow: jest.fn() }
+    describe('authType validation edge cases', () => {
+        test('rejects route configuration without authType', async () => {
+            // Mock validation failure for missing authType
+            Validation.validationCreate.mockReturnValue({
+                status: false,
+                messages: ['Route "/missing-authtype": Missing required field: authType']
             })
 
-            Validation.validationCreate.mockReturnValue({ status: true, messages: [] })
-
             const routes = {
-                '/legacy-auth0': {
-                    // No authType - should trigger legacy detection
-                    providerUrl: 'https://my-tenant.auth0.com',
-                    clientId: 'legacy-client',
-                    clientSecret: 'legacy-secret',
-                    scope: 'openid profile email',
-                    audience: 'https://api.example.com'
-                }
-            }
-
-            const middleware = await McpAuthMiddleware.create({ routes, silent: true })
-            
-            expect(middleware).toBeDefined()
-            
-            const routeConfig = middleware.getRouteConfig({ routePath: '/legacy-auth0' })
-            expect(routeConfig.authorizationUrl).toBe('https://my-tenant.auth0.com/authorize')
-            expect(routeConfig.tokenUrl).toBe('https://my-tenant.auth0.com/oauth/token')
-            expect(routeConfig.jwksUrl).toBe('https://my-tenant.auth0.com/.well-known/jwks.json')
-            expect(routeConfig.userInfoUrl).toBe('https://my-tenant.auth0.com/userinfo')
-            expect(routeConfig.introspectionUrl).toBe('https://my-tenant.auth0.com/oauth/token/introspection')
-        })
-
-        test('handles legacy Keycloak provider configuration (without authType)', async () => {
-            AuthTypeFactory.createAuthHandler.mockResolvedValue({
-                provider: { normalizeConfiguration: jest.fn().mockReturnValue({ config: {} }) },
-                tokenValidator: { validateToken: jest.fn() },
-                flowHandler: { initiateAuthFlow: jest.fn() }
-            })
-
-            Validation.validationCreate.mockReturnValue({ status: true, messages: [] })
-
-            const routes = {
-                '/legacy-keycloak': {
-                    // No authType - should trigger legacy detection
-                    providerUrl: 'https://keycloak.example.com',
-                    realm: 'master',
-                    clientId: 'keycloak-client',
-                    clientSecret: 'keycloak-secret',
-                    scope: 'openid profile email'
-                }
-            }
-
-            const middleware = await McpAuthMiddleware.create({ routes, silent: true })
-            
-            expect(middleware).toBeDefined()
-            
-            const routeConfig = middleware.getRouteConfig({ routePath: '/legacy-keycloak' })
-            expect(routeConfig.authorizationUrl).toBe('https://keycloak.example.com/realms/master/protocol/openid-connect/auth')
-            expect(routeConfig.tokenUrl).toBe('https://keycloak.example.com/realms/master/protocol/openid-connect/token')
-            expect(routeConfig.jwksUrl).toBe('https://keycloak.example.com/realms/master/protocol/openid-connect/certs')
-            expect(routeConfig.userInfoUrl).toBe('https://keycloak.example.com/realms/master/protocol/openid-connect/userinfo')
-            expect(routeConfig.introspectionUrl).toBe('https://keycloak.example.com/realms/master/protocol/openid-connect/token/introspect')
-        })
-
-        test('applies legacy configuration defaults correctly', async () => {
-            AuthTypeFactory.createAuthHandler.mockResolvedValue({
-                provider: { normalizeConfiguration: jest.fn().mockReturnValue({ config: {} }) },
-                tokenValidator: { validateToken: jest.fn() },
-                flowHandler: { initiateAuthFlow: jest.fn() }
-            })
-
-            Validation.validationCreate.mockReturnValue({ status: true, messages: [] })
-
-            const routes = {
-                '/legacy-defaults': {
-                    providerUrl: 'https://provider.example.com', // Not Auth0 - triggers Keycloak path
-                    realm: 'test-realm',
+                '/missing-authtype': {
+                    // Missing authType - should be rejected
+                    providerUrl: 'https://tenant.auth0.com',
                     clientId: 'test-client',
-                    clientSecret: 'test-secret'
-                    // Missing optional fields - should get defaults
+                    clientSecret: 'test-secret',
+                    scope: 'openid profile'
                 }
             }
 
-            const middleware = await McpAuthMiddleware.create({ routes, silent: true })
-            
-            const routeConfig = middleware.getRouteConfig({ routePath: '/legacy-defaults' })
-            expect(routeConfig.authFlow).toBe('authorization-code')
-            expect(routeConfig.requiredScopes).toEqual(['openid', 'profile'])
-            expect(routeConfig.forceHttps).toBe(false) // Global forceHttps default is false
-            expect(routeConfig.requiredRoles).toEqual([])
-            expect(routeConfig.allowAnonymous).toBe(false)
+            await expect(McpAuthMiddleware.create({ routes, silent: true }))
+                .rejects.toThrow('Input validation failed: Route "/missing-authtype": Missing required field: authType')
         })
 
-        test('allows overriding legacy configuration defaults', async () => {
+        test('rejects invalid authType values', async () => {
+            // Don't mock validation - let it run real validation to catch invalid authType
+            Validation.validationCreate.mockReturnValue({
+                status: false,
+                messages: ['Route "/invalid-authtype": Unsupported authType: keycloak. Supported types: oauth21_auth0, staticBearer']
+            })
+
+            const routes = {
+                '/invalid-authtype': {
+                    authType: 'keycloak', // Invalid - should be rejected
+                    providerUrl: 'https://tenant.auth0.com',
+                    clientId: 'test-client',
+                    clientSecret: 'test-secret',
+                    scope: 'openid profile'
+                }
+            }
+
+            await expect(McpAuthMiddleware.create({ routes, silent: true }))
+                .rejects.toThrow('Input validation failed: Route "/invalid-authtype": Unsupported authType: keycloak. Supported types: oauth21_auth0, staticBearer')
+        })
+
+        test('accepts valid oauth21_auth0 authType', async () => {
             AuthTypeFactory.createAuthHandler.mockResolvedValue({
                 provider: { normalizeConfiguration: jest.fn().mockReturnValue({ config: {} }) },
                 tokenValidator: { validateToken: jest.fn() },
@@ -400,74 +327,106 @@ describe('McpAuthMiddleware Edge Cases', () => {
             Validation.validationCreate.mockReturnValue({ status: true, messages: [] })
 
             const routes = {
-                '/legacy-custom': {
-                    providerUrl: 'https://provider.example.com',
-                    realm: 'custom-realm',
-                    clientId: 'custom-client',
-                    clientSecret: 'custom-secret',
-                    
-                    // Custom overrides
-                    authFlow: 'client-credentials',
-                    requiredScopes: ['custom:read', 'custom:write'],
-                    forceHttps: false,
-                    requiredRoles: ['admin', 'user'],
-                    allowAnonymous: true,
-                    
-                    // Custom endpoint overrides
-                    authorizationUrl: 'https://custom.example.com/auth',
-                    tokenUrl: 'https://custom.example.com/token',
-                    jwksUrl: 'https://custom.example.com/jwks',
-                    userInfoUrl: 'https://custom.example.com/userinfo',
-                    introspectionUrl: 'https://custom.example.com/introspect'
-                }
-            }
-
-            const middleware = await McpAuthMiddleware.create({ routes, silent: true })
-            
-            const routeConfig = middleware.getRouteConfig({ routePath: '/legacy-custom' })
-            expect(routeConfig.authFlow).toBe('client-credentials')
-            expect(routeConfig.requiredScopes).toEqual(['custom:read', 'custom:write'])
-            expect(routeConfig.forceHttps).toBe(false)
-            expect(routeConfig.requiredRoles).toEqual(['admin', 'user'])
-            expect(routeConfig.allowAnonymous).toBe(true)
-            
-            // Should use custom endpoints instead of auto-generated ones
-            expect(routeConfig.authorizationUrl).toBe('https://custom.example.com/auth')
-            expect(routeConfig.tokenUrl).toBe('https://custom.example.com/token')
-            expect(routeConfig.jwksUrl).toBe('https://custom.example.com/jwks')
-            expect(routeConfig.userInfoUrl).toBe('https://custom.example.com/userinfo')
-            expect(routeConfig.introspectionUrl).toBe('https://custom.example.com/introspect')
-        })
-    })
-
-    describe('authType-based configuration edge cases', () => {
-        test('applies authType configuration defaults correctly', async () => {
-            AuthTypeFactory.createAuthHandler.mockResolvedValue({
-                provider: { normalizeConfiguration: jest.fn().mockReturnValue({ config: {} }) },
-                tokenValidator: { validateToken: jest.fn() },
-                flowHandler: { initiateAuthFlow: jest.fn() }
-            })
-
-            Validation.validationCreate.mockReturnValue({ status: true, messages: [] })
-
-            const routes = {
-                '/authtype-defaults': {
-                    authType: 'oauth21_auth0', // Has authType - triggers new path
+                '/valid-auth0': {
+                    authType: 'oauth21_auth0',
                     providerUrl: 'https://tenant.auth0.com',
                     clientId: 'test-client',
                     clientSecret: 'test-secret',
                     scope: 'openid profile',
                     audience: 'https://api.example.com'
-                    // Missing optional fields - should get defaults
                 }
             }
 
             const middleware = await McpAuthMiddleware.create({ routes, silent: true })
-            
-            const routeConfig = middleware.getRouteConfig({ routePath: '/authtype-defaults' })
-            expect(routeConfig.authFlow).toBe('authorization-code') // Default
-            expect(routeConfig.requiredRoles).toEqual([]) // Default
-            expect(routeConfig.allowAnonymous).toBe(false) // Default
+
+            expect(middleware).toBeDefined()
+            expect(AuthTypeFactory.createAuthHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    authType: 'oauth21_auth0'
+                })
+            )
+        })
+
+        test('accepts valid staticBearer authType', async () => {
+            AuthTypeFactory.createAuthHandler.mockResolvedValue({
+                provider: { normalizeConfiguration: jest.fn().mockReturnValue({ config: {} }) },
+                tokenValidator: { validateToken: jest.fn() },
+                flowHandler: null // staticBearer doesn't need flow handler
+            })
+
+            Validation.validationCreate.mockReturnValue({ status: true, messages: [] })
+
+            const routes = {
+                '/valid-bearer': {
+                    authType: 'staticBearer',
+                    staticToken: 'valid-bearer-token-12345',
+                    scope: 'read write'
+                }
+            }
+
+            const middleware = await McpAuthMiddleware.create({ routes, silent: true })
+
+            expect(middleware).toBeDefined()
+            expect(AuthTypeFactory.createAuthHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    authType: 'staticBearer'
+                })
+            )
+        })
+    })
+
+    describe('authType-based configuration edge cases', () => {
+        test('handles complete authType configuration correctly', async () => {
+            // Mock AuthTypeFactory to return handler with proper provider
+            const mockAuthHandler = {
+                provider: {
+                    normalizeConfiguration: jest.fn().mockImplementation(({ config }) => ({
+                        normalizedConfig: config // Return the config as-is to preserve Entry-Point defaults
+                    }))
+                },
+                tokenValidator: { validateToken: jest.fn() },
+                flowHandler: { initiateAuthFlow: jest.fn() }
+            }
+
+            AuthTypeFactory.createAuthHandler.mockResolvedValue(mockAuthHandler)
+            Validation.validationCreate.mockReturnValue({ status: true, messages: [] })
+
+            const routes = {
+                '/authtype-complete': {
+                    authType: 'oauth21_auth0',
+                    providerUrl: 'https://tenant.auth0.com',
+                    clientId: 'test-client',
+                    clientSecret: 'test-secret',
+                    scope: 'openid profile',
+                    audience: 'https://api.example.com',
+                    realm: 'test-realm',
+                    authFlow: 'authorization_code',
+                    requiredScopes: [ 'openid' ],
+                    requiredRoles: []
+                    // All fields now explicitly provided - no defaults needed
+                }
+            }
+
+            // Create middleware with complete configuration (no defaults needed)
+            const middleware = await McpAuthMiddleware.create({ routes, silent: true })
+
+            // Verify that all configuration fields are passed correctly to AuthTypeFactory
+            expect(AuthTypeFactory.createAuthHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    config: expect.objectContaining({
+                        authType: 'oauth21_auth0',
+                        providerUrl: 'https://tenant.auth0.com',
+                        clientId: 'test-client',
+                        clientSecret: 'test-secret',
+                        scope: 'openid profile',
+                        audience: 'https://api.example.com',
+                        realm: 'test-realm',
+                        authFlow: 'authorization_code',
+                        requiredScopes: [ 'openid' ],
+                        requiredRoles: []
+                    })
+                })
+            )
         })
 
         test('allows overriding authType configuration defaults', async () => {

@@ -52,9 +52,6 @@ class McpAuthMiddleware {
     }
 
 
-    getRealms() {
-        return this.#impl.getRealms()
-    }
 }
 
 

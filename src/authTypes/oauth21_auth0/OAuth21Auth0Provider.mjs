@@ -17,18 +17,11 @@ class OAuth21Auth0Provider {
 
 
     normalizeConfiguration( { config } ) {
-        const { providerUrl, realm, clientId, clientSecret, scope, audience, resourceUri } = config
-        
+        // Preserve all original config fields and only add/override provider-specific ones
         const normalizedConfig = {
-            providerUrl,
-            realm: realm || 'oauth21-auth0',
-            clientId,
-            clientSecret,
-            scope: scope || 'openid profile email',
-            audience,
-            resourceUri,
-            authFlow: 'authorization_code',
-            authType: 'oauth21_auth0'
+            ...config,  // Keep all Entry-Point defaults and user config
+            authFlow: 'authorization_code',  // Provider-specific constant
+            authType: 'oauth21_auth0'        // Provider-specific constant
         }
 
         return { normalizedConfig }
@@ -36,14 +29,20 @@ class OAuth21Auth0Provider {
 
 
     generateEndpoints( { config } ) {
-        const { providerUrl } = config
-        
+        const { providerUrl, tokenEndpoint, userInfoEndpoint } = config
+
         const endpoints = {
+            // Endpoints for OAuthFlowHandler (with URL suffix)
+            authorizationUrl: `${providerUrl}/authorize`,
+            tokenUrl: tokenEndpoint || `${providerUrl}/oauth/token`,
+            deviceAuthorizationUrl: `${providerUrl}/oauth/device/code`,
+
+            // Endpoints for discovery and other purposes (with Endpoint suffix)
             authorizationEndpoint: `${providerUrl}/authorize`,
-            tokenEndpoint: config.tokenEndpoint || `${providerUrl}/oauth/token`,
+            tokenEndpoint: tokenEndpoint || `${providerUrl}/oauth/token`,
             deviceAuthorizationEndpoint: `${providerUrl}/oauth/device/code`,
             jwksUrl: `${providerUrl}/.well-known/jwks.json`,
-            userInfoUrl: config.userInfoEndpoint || `${providerUrl}/userinfo`,
+            userInfoUrl: userInfoEndpoint || `${providerUrl}/userinfo`,
             introspectionUrl: `${providerUrl}/oauth/token/introspection`,
             discoveryUrl: `${providerUrl}/.well-known/openid_configuration`
         }

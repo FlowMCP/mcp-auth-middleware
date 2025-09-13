@@ -6,7 +6,7 @@ const mockMcpAuthMiddlewareImpl = {
     getRouteConfig: jest.fn(),
     getRouteClient: jest.fn(),
     getRoutes: jest.fn(),
-    getRealms: jest.fn()
+    // getRealms method removed - routes handled via getRoutes/getRouteConfig
 }
 
 // Mock the Validation module
@@ -221,25 +221,36 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
     } )
 
 
-    describe( 'getRealms', () => {
+    describe( 'Route Management', () => {
 
-        test( 'returns realms from implementation', async () => {
+        test( 'getRoutes returns configured routes', async () => {
             mockValidation.validationCreate.mockReturnValue( {
                 status: true,
                 messages: []
             } )
-            mockMcpAuthMiddlewareImpl.getRealms.mockReturnValue( [
-                { route: '/api', realm: 'api-realm' }
-            ] )
+            mockMcpAuthMiddlewareImpl.getRoutes.mockReturnValue( [ '/api' ] )
 
             const middleware = await McpAuthMiddleware.create( {
-                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
+                routes: {
+                    '/api': {
+                        authType: 'oauth21_auth0',
+                        providerUrl: 'https://auth.example.com',
+                        clientId: 'test',
+                        clientSecret: 'secret',
+                        scope: 'openid',
+                        audience: 'https://api.example.com',
+                        realm: 'test-realm',
+                        authFlow: 'authorization_code',
+                        requiredScopes: [ 'openid' ],
+                        requiredRoles: []
+                    }
+                }
             } )
 
-            const realms = middleware.getRealms()
+            const routes = middleware.getRoutes()
 
-            expect( realms ).toEqual( [ { route: '/api', realm: 'api-realm' } ] )
-            expect( mockMcpAuthMiddlewareImpl.getRealms ).toHaveBeenCalled()
+            expect( routes ).toEqual( [ '/api' ] )
+            expect( mockMcpAuthMiddlewareImpl.getRoutes ).toHaveBeenCalled()
         } )
 
     } )

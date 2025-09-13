@@ -14,7 +14,11 @@ describe( 'Validation', () => {
                         clientId: 'test-client-id',
                         clientSecret: 'test-client-secret',
                         scope: 'openid profile email api:read api:write',
-                        audience: 'https://api.example.com'
+                        audience: 'https://api.example.com',
+                        realm: 'api-realm',
+                        authFlow: 'authorization_code',
+                        requiredScopes: ['openid', 'profile', 'email', 'api:read', 'api:write'],
+                        requiredRoles: ['user']
                     }
                 },
                 silent: true
@@ -168,7 +172,11 @@ describe( 'Validation', () => {
                         clientId: 'api-client-id',
                         clientSecret: 'api-client-secret',
                         scope: 'openid profile email api:read',
-                        audience: 'https://api.example.com'
+                        audience: 'https://api.example.com',
+                        realm: 'api-realm',
+                        authFlow: 'authorization_code',
+                        requiredScopes: ['openid', 'profile', 'email', 'api:read'],
+                        requiredRoles: ['user']
                     },
                     '/admin': {
                         authType: 'oauth21_auth0',
@@ -176,7 +184,11 @@ describe( 'Validation', () => {
                         clientId: 'admin-client-id',
                         clientSecret: 'admin-client-secret',
                         scope: 'openid profile email admin:full',
-                        audience: 'https://admin.example.com'
+                        audience: 'https://admin.example.com',
+                        realm: 'admin-realm',
+                        authFlow: 'authorization_code',
+                        requiredScopes: ['openid', 'profile', 'email', 'admin:full'],
+                        requiredRoles: ['admin']
                     }
                 },
                 silent: true
@@ -262,7 +274,11 @@ describe( 'Validation', () => {
                     clientId: 'test-client-id',
                     clientSecret: 'test-client-secret',
                     scope: 'openid profile email',
-                    audience: 'https://api.example.com'
+                    audience: 'https://api.example.com',
+                    realm: 'test-realm',
+                    authFlow: 'authorization_code',
+                    requiredScopes: ['openid', 'profile', 'email'],
+                    requiredRoles: ['user']
                 }
             } )
 
