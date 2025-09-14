@@ -182,7 +182,14 @@ class McpAuthMiddleware {
             this.#router.get( `${routePath}/auth/login`, httpsMiddleware, ( req, res ) => {
                 this.#handleLogin( { req, res, routePath } )
             } )
-            
+
+            // Dynamic Client Registration endpoint for ScaleKit (returns pre-configured credentials)
+            if( config.authType === 'oauth21_scalekit' ) {
+                this.#router.post( `${routePath}/oauth/register`, ( req, res ) => {
+                    this.#handleScalekitRegistration( { req, res, routePath } )
+                } )
+            }
+
             // OAuth callback endpoint per route (GET and POST for different flows)
             this.#router.get( `${routePath}/auth/callback`, httpsMiddleware, async ( req, res ) => {
                 await this.#handleCallback( { req, res, routePath } )
@@ -233,20 +240,28 @@ class McpAuthMiddleware {
 
                 // Register discovery endpoints BEFORE the protected route middleware
                 // These must be publicly accessible per RFC 8414/9728
-                this.#router.get( authServerPath, ( req, res ) => {
-                    const { success, metadata, error } = this.#discoveryHandler.generateAuthorizationServerMetadata( { routePath } )
-                    
-                    if( !success ) {
-                        return res.status( 404 ).json( { error } )
-                    }
+                this.#router.get( authServerPath, async ( req, res ) => {
+                    try {
+                        const { success, metadata, error } = await this.#discoveryHandler.generateAuthorizationServerMetadata( { routePath } )
 
-                    res.set( {
-                        'Content-Type': 'application/json',
-                        'Cache-Control': 'public, max-age=3600',
-                        'Access-Control-Allow-Origin': '*'
-                    } )
-                    
-                    res.json( metadata )
+                        if( !success ) {
+                            return res.status( 404 ).json( { error } )
+                        }
+
+                        res.set( {
+                            'Content-Type': 'application/json',
+                            'Cache-Control': 'public, max-age=3600',
+                            'Access-Control-Allow-Origin': '*'
+                        } )
+
+                        res.json( metadata )
+                    } catch( handlerError ) {
+                        this.#log( `Error generating authorization server metadata for ${routePath}: ${handlerError.message}` )
+
+                        res.status( 500 ).json( {
+                            error: 'Internal server error generating authorization server metadata'
+                        } )
+                    }
                 } )
 
                 this.#router.get( protectedResourcePath, ( req, res ) => {
@@ -399,9 +414,16 @@ class McpAuthMiddleware {
         // RFC 9728 Protected Resource Metadata - Complete Implementation
         const metadata = {
             // Required fields per RFC 9728
-            resource: resourceUri,
+            // For ScaleKit, use the configured resource URL that matches the dashboard
+            resource: config.authType === 'oauth21_scalekit' && config.resource
+                ? config.resource
+                : resourceUri,
             authorization_servers: [
-                config.authType === 'oauth21_auth0' ? config.providerUrl : `${config.providerUrl}/realms/${config.realm}`
+                // For OAuth 2.1 with external providers, point to our local middleware as the authorization server
+                // This allows MCP clients to discover our registration endpoint and OAuth flow
+                config.authType === 'oauth21_auth0' || config.authType === 'oauth21_scalekit'
+                    ? this.#baseUrl
+                    : `${config.providerUrl}/realms/${config.realm}`
             ],
             
             // Optional but recommended fields
@@ -426,7 +448,9 @@ class McpAuthMiddleware {
             links: [
                 {
                     rel: 'authorization_server',
-                    href: config.authType === 'oauth21_auth0' ? config.providerUrl : `${config.providerUrl}/realms/${config.realm}`
+                    href: config.authType === 'oauth21_auth0' || config.authType === 'oauth21_scalekit'
+                        ? config.providerUrl
+                        : `${config.providerUrl}/realms/${config.realm}`
                 },
                 {
                     rel: 'login',
@@ -486,13 +510,22 @@ class McpAuthMiddleware {
             // Use OAuthFlowHandler to get discovery metadata
             const sharedHelpers = this.#routeClients.get( 'shared' )
             const discoveryData = sharedHelpers.oauthFlowHandler.getDiscoveryData()
-            
+
+            // Add registration endpoint for ScaleKit routes (dynamic client registration support)
+            const scalekitRoutes = Array.from( this.#routeConfigs.entries() )
+                .filter( ( [ routePath, config ] ) => config.authType === 'oauth21_scalekit' )
+
+            if( scalekitRoutes.length > 0 ) {
+                const [ routePath ] = scalekitRoutes[0] // Use first ScaleKit route
+                discoveryData.registration_endpoint = `${this.#baseUrl}${routePath}/oauth/register`
+            }
+
             // Return the discovery metadata as JSON
             res.json( discoveryData )
         } catch( error ) {
-            Logger.error( { 
-                silent: this.#silent, 
-                message: `Authorization server metadata error: ${error.message}` 
+            Logger.error( {
+                silent: this.#silent,
+                message: `Authorization server metadata error: ${error.message}`
             } )
             res.status( 500 ).json( { error: 'Internal server error' } )
         }
@@ -507,7 +540,12 @@ class McpAuthMiddleware {
     async #handleProtectedRequest( { req, res, next, routePath } ) {
         const config = this.#routeConfigs.get( routePath )
         const sharedHelpers = this.#routeClients.get( 'shared' )
-        
+
+        // Allow unauthenticated access to OAuth registration endpoint for dynamic client registration
+        if( req.path.endsWith( '/oauth/register' ) && config.authType === 'oauth21_scalekit' ) {
+            return next()
+        }
+
         // OAuth 2.1 Security: HTTPS check for this route if required
         if( config.forceHttps && !this.#isSecureConnection( { req } ) ) {
             return this.#sendHttpsRequiredError( { res } )
@@ -1097,6 +1135,40 @@ class McpAuthMiddleware {
 
     setSilent( { silent } ) {
         this.#silent = silent
+    }
+
+
+    #handleScalekitRegistration( { req, res, routePath } ) {
+        const config = this.#routeConfigs.get( routePath )
+
+        if( !config || config.authType !== 'oauth21_scalekit' ) {
+            return res.status( 404 ).json( {
+                error: 'not_found',
+                error_description: 'Registration endpoint not available for this route'
+            } )
+        }
+
+        // ScaleKit doesn't support true dynamic client registration
+        // We return the pre-configured client credentials for MCP clients
+        const registrationResponse = {
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            client_id_issued_at: Math.floor( Date.now() / 1000 ),
+            // Standard DCR response fields
+            redirect_uris: [ `${this.#baseUrl}${routePath}/auth/callback` ],
+            response_types: [ 'code' ],
+            grant_types: [ 'authorization_code', 'refresh_token' ],
+            token_endpoint_auth_method: 'client_secret_post',
+            scope: config.scope || 'openid profile mcp:tools mcp:resources:read mcp:resources:write'
+        }
+
+        res.set( {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+            'Access-Control-Allow-Origin': '*'
+        } )
+
+        return res.status( 201 ).json( registrationResponse )
     }
 }
 

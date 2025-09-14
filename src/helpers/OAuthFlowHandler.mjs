@@ -23,21 +23,23 @@ class OAuthFlowHandler {
         
         // Initialize all route configurations
         Object.entries( routes ).forEach( ( [ routePath, config ] ) => {
-            // OAuthFlowHandler only supports oauth21_auth0 (staticBearer has no OAuth flow)
-            if( config.authType !== 'oauth21_auth0' ) {
-                throw new Error( `OAuthFlowHandler only supports oauth21_auth0, got: ${config.authType}` )
+            // OAuthFlowHandler supports OAuth-based auth types (staticBearer has no OAuth flow)
+            if( !['oauth21_auth0', 'oauth21_scalekit'].includes(config.authType) ) {
+                throw new Error( `OAuthFlowHandler only supports oauth21_auth0, oauth21_scalekit, got: ${config.authType}` )
             }
 
             const normalizedConfig = {
                 providerUrl: config.providerUrl,
-                realm: config.realm,
+                realm: config.realm, // Auth0-specific
+                mcpId: config.mcpId, // ScaleKit-specific
+                resource: config.resource, // ScaleKit-specific
                 clientId: config.clientId,
                 clientSecret: config.clientSecret,
                 redirectUri: `${baseRedirectUri}${routePath}/auth/callback`,
                 authFlow: config.authFlow,
                 requiredScopes: config.requiredScopes,
                 forceHttps: config.forceHttps,
-                resourceUri: config.resourceUri,
+                resourceUri: config.resourceUri, // Auth0-specific
                 // URLs will be handled by AuthType handlers
                 authorizationEndpoint: config.authorizationEndpoint,
                 tokenEndpoint: config.tokenEndpoint,

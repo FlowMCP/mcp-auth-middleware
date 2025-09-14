@@ -36,8 +36,13 @@ class PKCEGenerator {
     static verifyChallenge( { verifier, challenge } ) {
         const { challenge: expectedChallenge } = this.generateCodeChallenge( { verifier } )
         const isValid = challenge === expectedChallenge
-        
+
         return { isValid }
+    }
+
+
+    static generateRandomString( length = 32 ) {
+        return crypto.randomBytes( length ).toString( 'base64url' ).substring( 0, length )
     }
 }
 

@@ -47,6 +47,10 @@ class AuthTypeValidator {
             return AuthTypeValidator.#validateOAuth21Auth0Schema( { config } )
         }
 
+        if( authType === 'oauth21_scalekit' ) {
+            return AuthTypeValidator.#validateOAuth21ScalekitSchema( { config } )
+        }
+
         if( authType === 'staticBearer' ) {
             return AuthTypeValidator.#validateStaticBearerSchema( { config } )
         }
@@ -104,6 +108,85 @@ class AuthTypeValidator {
         }
 
         const optionalFields = [
+            [ 'redirectUri', 'string' ],
+            [ 'responseType', 'string' ],
+            [ 'grantType', 'string' ],
+            [ 'tokenEndpoint', 'string' ],
+            [ 'userInfoEndpoint', 'string' ]
+        ]
+
+        optionalFields
+            .forEach( ( [ key, type ] ) => {
+                const value = config[ key ]
+                if( value !== undefined && typeof value !== type ) {
+                    struct['messages'].push( `config.${key}: Must be a ${type} when provided` )
+                }
+            } )
+
+        if( struct['messages'].length > 0 ) {
+            return struct
+        }
+
+        struct['status'] = true
+        return struct
+    }
+
+
+    static #validateOAuth21ScalekitSchema( { config } ) {
+        const struct = { status: false, messages: [] }
+
+        const requiredFields = [
+            [ 'providerUrl', 'string' ],
+            [ 'mcpId', 'string' ],
+            [ 'clientId', 'string' ],
+            [ 'clientSecret', 'string' ],
+            [ 'resource', 'string' ],
+            [ 'scope', 'string' ]
+        ]
+
+        const missingFields = []
+        const typeErrors = []
+
+        requiredFields
+            .forEach( ( [ key, type ] ) => {
+                const value = config[ key ]
+                if( value === undefined || value === null ) {
+                    missingFields.push( key )
+                } else if( typeof value !== type ) {
+                    typeErrors.push( `${key}: Must be a ${type}` )
+                }
+            } )
+
+        if( missingFields.length > 0 ) {
+            struct['messages'].push( `OAuth21 ScaleKit configuration missing required fields: ${missingFields.join( ', ' )}` )
+        }
+
+        if( typeErrors.length > 0 ) {
+            struct['messages'].push( ...typeErrors.map( error => `OAuth21 ScaleKit configuration ${error}` ) )
+        }
+
+        // ScaleKit-specific domain validation
+        if( config.providerUrl && typeof config.providerUrl === 'string' ) {
+            if( !config.providerUrl.includes( 'scalekit.dev' ) ) {
+                struct['messages'].push( `OAuth21 ScaleKit configuration requires scalekit.dev domain in providerUrl, got: ${config.providerUrl}` )
+            }
+            try {
+                new URL( config.providerUrl )
+            } catch( error ) {
+                struct['messages'].push( `OAuth21 ScaleKit configuration requires valid URL in providerUrl, got: ${config.providerUrl}` )
+            }
+        }
+
+        // ScaleKit-specific mcpId validation
+        if( config.mcpId && typeof config.mcpId === 'string' ) {
+            if( !config.mcpId.startsWith( 'res_' ) ) {
+                struct['messages'].push( `OAuth21 ScaleKit configuration requires mcpId to start with 'res_', got: ${config.mcpId}` )
+            }
+        }
+
+        const optionalFields = [
+            [ 'resourceDocumentation', 'string' ],
+            [ 'routePath', 'string' ],
             [ 'redirectUri', 'string' ],
             [ 'responseType', 'string' ],
             [ 'grantType', 'string' ],

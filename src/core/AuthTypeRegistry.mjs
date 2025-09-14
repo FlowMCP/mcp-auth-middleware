@@ -57,6 +57,19 @@ class AuthTypeRegistry {
             optionalFields: [ 'redirectUri', 'responseType', 'grantType', 'tokenEndpoint', 'userInfoEndpoint' ]
         } )
 
+        this.#authTypes.set( 'oauth21_scalekit', {
+            name: 'OAuth 2.1 with ScaleKit',
+            description: 'OAuth 2.1 implementation for ScaleKit MCP servers',
+            schemaPath: '../authTypes/oauth21_scalekit/OAuth21ScalekitSchema.mjs',
+            providerPath: '../authTypes/oauth21_scalekit/OAuth21ScalekitProvider.mjs',
+            tokenValidatorPath: '../authTypes/oauth21_scalekit/OAuth21ScalekitTokenValidator.mjs',
+            flowHandlerPath: '../authTypes/oauth21_scalekit/OAuth21ScalekitFlowHandler.mjs',
+            supportedFlows: [ 'authorization_code', 'client_credentials', 'refresh_token' ],
+            defaultScopes: 'mcp:tools:* mcp:resources:read mcp:resources:write',
+            requiredFields: [ 'providerUrl', 'mcpId', 'clientId', 'clientSecret', 'resource', 'scope' ],
+            optionalFields: [ 'resourceDocumentation', 'routePath', 'redirectUri', 'responseType', 'grantType', 'tokenEndpoint', 'userInfoEndpoint' ]
+        } )
+
         this.#authTypes.set( 'staticBearer', {
             name: 'Static Bearer Token',
             description: 'Simple static bearer token authentication',
@@ -70,9 +83,9 @@ class AuthTypeRegistry {
             optionalFields: []
         } )
 
-        Logger.info( { 
-            silent: this.#silent, 
-            message: `AuthTypeRegistry initialized with ${this.#authTypes.size} auth types` 
+        Logger.info( {
+            silent: this.#silent,
+            message: `AuthTypeRegistry initialized with ${this.#authTypes.size} auth types`
         } )
     }
 }
