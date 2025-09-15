@@ -1,4 +1,5 @@
 import { Logger } from '../../helpers/Logger.mjs'
+import { oauth21ScalekitSchema } from './OAuth21ScalekitSchema.mjs'
 
 
 class OAuth21ScalekitProvider {
@@ -143,8 +144,12 @@ class OAuth21ScalekitProvider {
             struct['messages'].push( `OAuth21Scalekit config missing required fields: ${missing.join( ', ' )}` )
         }
 
-        if( config.providerUrl && !config.providerUrl.includes( 'scalekit.dev' ) ) {
-            struct['messages'].push( 'OAuth21Scalekit provider requires scalekit.dev domain in providerUrl' )
+        // Custom domains are now supported - no domain restriction
+
+        // Validate using schema patterns
+        const { validation } = oauth21ScalekitSchema
+        if( config.providerUrl && validation.providerUrl.pattern && !validation.providerUrl.pattern.test( config.providerUrl ) ) {
+            struct['messages'].push( `OAuth21Scalekit config validation failed: ${validation.providerUrl.message}` )
         }
 
         if( config.mcpId && !config.mcpId.startsWith( 'res_' ) ) {

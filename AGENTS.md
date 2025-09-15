@@ -40,7 +40,7 @@ This guide provides AI agents with essential information for working with the OA
 
 ### ⚠️ Critical Rules
 1. **Single Entry Point**: All imports must go through `src/index.mjs`
-2. **AuthType Required**: All routes must specify authType (oauth21_auth0 or staticBearer)
+2. **AuthType Required**: All routes must specify authType (oauth21_auth0, oauth21_scalekit, or staticBearer)
 3. **Validation Required**: All public methods must validate inputs
 4. **Transport Limitation**: HTTP+SSE only, no stdio support
 5. **OAuth 2.1 Only**: No other authentication methods supported
@@ -71,7 +71,7 @@ src/
 const middleware = await McpAuthMiddleware.create({
     routes: {
         '/route': {
-            authType: 'oauth21_auth0', // Auth type identifier
+            authType: 'oauth21_scalekit', // Auth type identifier
             providerUrl: 'string',     // Provider base URL
             clientId: 'string',
             clientSecret: 'string',
@@ -116,7 +116,7 @@ npm run test:coverage:src   # Run with coverage report
 
 ### ❌ Missing AuthType Configuration
 - **Problem**: Routes without authType specification
-- **Solution**: Add `authType: 'oauth21_auth0'` or `authType: 'staticBearer'`
+- **Solution**: Add `authType: 'oauth21_auth0'`, `authType: 'oauth21_scalekit'`, or `authType: 'staticBearer'`
 
 ### ❌ Missing Validation
 - **Problem**: Calling implementation methods directly
@@ -157,7 +157,7 @@ const credentials = TestUtils.getEnvParams( {
 
 - **Node.js 22** with ES modules (.mjs)
 - **Express.js** for HTTP server
-- **Multi-AuthType Support**: oauth21_auth0, staticBearer
+- **Multi-AuthType Support**: oauth21_auth0, oauth21_scalekit, staticBearer
 - **Jest** for testing
 - **OAuth 2.1** security profile
 - **RFC 8414, 9728, 8707** compliance

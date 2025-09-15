@@ -2,7 +2,7 @@
 
 [![Test](https://img.shields.io/github/actions/workflow/status/flowmcp/oauth-middleware/test-on-release.yml)]() ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Express-compatible authentication middleware for securing MCP server endpoints with OAuth 2.1 and Bearer token support.
+Express-compatible authentication middleware for securing MCP server endpoints with OAuth 2.1 (Auth0, ScaleKit) and Bearer token support.
 
 ## Table of Contents
 
@@ -12,6 +12,7 @@ Express-compatible authentication middleware for securing MCP server endpoints w
   - [Quick Start](#quick-start)
   - [AuthTypes](#authtypes)
     - [oauth21\_auth0](#oauth21_auth0)
+    - [oauth21\_scalekit](#oauth21_scalekit)
     - [staticBearer](#staticbearer)
   - [Configuration](#configuration)
     - [Multi-Route Setup](#multi-route-setup)
@@ -45,6 +46,18 @@ const middleware = await McpAuthMiddleware.create({
             scope: 'openid profile email',
             audience: 'https://your-api.example.com',
             realm: 'api-realm',
+            authFlow: 'authorization_code',
+            requiredScopes: ['openid', 'profile', 'email'],
+            requiredRoles: ['user']
+        },
+        '/api/scalekit': {
+            authType: 'oauth21_scalekit',
+            providerUrl: 'https://your-domain.scalekit.com',
+            clientId: 'your-scalekit-client-id',
+            clientSecret: 'your-scalekit-client-secret',
+            scope: 'openid profile email',
+            audience: 'https://your-api.example.com',
+            realm: 'scalekit-realm',
             authFlow: 'authorization_code',
             requiredScopes: ['openid', 'profile', 'email'],
             requiredRoles: ['user']
@@ -101,6 +114,43 @@ OAuth 2.1 implementation with Auth0 provider support.
 - `forceHttps` - Enforce HTTPS (default: true)
 - `resourceUri` - Resource URI for OAuth resource indicators
 
+### oauth21_scalekit
+
+OAuth 2.1 implementation with ScaleKit provider support.
+
+**Configuration:**
+```javascript
+{
+    authType: 'oauth21_scalekit',
+    providerUrl: 'https://tenant.scalekit.com',
+    clientId: 'your-scalekit-client-id',
+    clientSecret: 'your-scalekit-client-secret',
+    scope: 'openid profile email',
+    audience: 'https://your-api.example.com',
+    realm: 'scalekit-realm',
+    authFlow: 'authorization_code',
+    requiredScopes: ['openid', 'profile', 'email'],
+    requiredRoles: ['user']
+}
+```
+
+**Required fields:**
+- `authType` - Must be 'oauth21_scalekit'
+- `providerUrl` - ScaleKit domain URL (must contain 'scalekit.com')
+- `clientId` - ScaleKit application client ID
+- `clientSecret` - ScaleKit application client secret
+- `scope` - OAuth scopes to request (string)
+- `audience` - ScaleKit API audience identifier (string)
+- `realm` - Security realm identifier
+- `authFlow` - OAuth flow type (typically 'authorization_code')
+- `requiredScopes` - Array of required scopes for access
+- `requiredRoles` - Array of required roles for access
+
+**Optional fields:**
+- `redirectUri` - Custom OAuth redirect URI
+- `forceHttps` - Enforce HTTPS (default: true)
+- `resourceUri` - Resource URI for OAuth resource indicators
+
 ### staticBearer
 
 Simple static Bearer token authentication.
@@ -127,8 +177,8 @@ Simple static Bearer token authentication.
 const middleware = await McpAuthMiddleware.create({
     routes: {
         '/admin': {
-            authType: 'oauth21_auth0',
-            providerUrl: 'https://admin.auth0.com',
+            authType: 'oauth21_scalekit',
+            providerUrl: 'https://admin.scalekit.com',
             clientId: 'admin-client-id',
             clientSecret: 'admin-secret',
             scope: 'openid profile email admin:read',

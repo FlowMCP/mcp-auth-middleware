@@ -7,7 +7,7 @@ const oauth21ScalekitSchema = {
         {
             key: 'providerUrl',
             type: 'string',
-            description: 'ScaleKit domain URL (e.g., https://subdomain.scalekit.dev)',
+            description: 'OAuth provider URL (ScaleKit hosted or custom domain)',
             example: 'https://flowmcp-afaeuirdaafqi.scalekit.dev'
         },
         {
@@ -97,8 +97,8 @@ const oauth21ScalekitSchema = {
 
     validation: {
         providerUrl: {
-            pattern: /^https:\/\/[a-zA-Z0-9.-]+\.scalekit\.dev$/,
-            message: 'providerUrl must be a valid ScaleKit domain (https://subdomain.scalekit.dev)'
+            pattern: /^https:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+            message: 'providerUrl must be a valid HTTPS URL'
         },
         mcpId: {
             pattern: /^res_[0-9]+$/,
