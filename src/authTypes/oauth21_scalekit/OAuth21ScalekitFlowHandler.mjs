@@ -318,7 +318,8 @@ class OAuth21ScalekitFlowHandler {
 
 
     static isScalekitEndpoint( { url } ) {
-        return url && url.includes( 'scalekit.dev' )
+        // Accept any valid URL for ScaleKit (custom domains supported)
+        return url && typeof url === 'string' && url.startsWith( 'https://' )
     }
 }
 

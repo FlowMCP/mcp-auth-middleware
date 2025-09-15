@@ -14,7 +14,9 @@ class OAuth21ScalekitProvider {
 
 
     detectProviderType( { providerUrl } ) {
-        return !!(providerUrl && providerUrl.includes( 'scalekit.dev' ))
+        // Support both ScaleKit hosted domains and custom domains
+        // Explicitly exclude auth0.com to avoid confusion with Auth0 provider
+        return !!(providerUrl && !providerUrl.includes( 'auth0.com' ))
     }
 
 

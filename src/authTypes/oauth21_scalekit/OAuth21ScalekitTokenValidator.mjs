@@ -263,8 +263,10 @@ class OAuth21ScalekitTokenValidator {
             const decoded = jwt.decode( token, { complete: true } )
             if( !decoded ) return false
 
+            // With custom domain support, we accept any valid HTTPS issuer
+            // excluding auth0.com to avoid confusion with Auth0 tokens
             const issuer = decoded.payload.iss
-            return issuer && issuer.includes( 'scalekit.dev' )
+            return issuer && issuer.startsWith( 'https://' ) && !issuer.includes( 'auth0.com' )
         } catch {
             return false
         }

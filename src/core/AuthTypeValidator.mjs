@@ -165,11 +165,8 @@ class AuthTypeValidator {
             struct['messages'].push( ...typeErrors.map( error => `OAuth21 ScaleKit configuration ${error}` ) )
         }
 
-        // ScaleKit-specific domain validation
+        // ScaleKit custom domain support - no domain restriction
         if( config.providerUrl && typeof config.providerUrl === 'string' ) {
-            if( !config.providerUrl.includes( 'scalekit.dev' ) ) {
-                struct['messages'].push( `OAuth21 ScaleKit configuration requires scalekit.dev domain in providerUrl, got: ${config.providerUrl}` )
-            }
             try {
                 new URL( config.providerUrl )
             } catch( error ) {
