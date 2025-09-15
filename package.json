@@ -1,6 +1,6 @@
 {
     "name": "mcp-auth-middleware",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "description": "OAuth 2.1 authentication middleware for MCP servers with Auth0 and static Bearer token support",
     "main": "./src/index.mjs",
     "type": "module",
