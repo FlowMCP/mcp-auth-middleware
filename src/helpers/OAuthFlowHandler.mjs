@@ -33,6 +33,8 @@ class OAuthFlowHandler {
                 realm: config.realm, // Auth0-specific
                 mcpId: config.mcpId, // ScaleKit-specific
                 resource: config.resource, // ScaleKit-specific
+                authType: config.authType, // Provider type identifier
+                organizationId: config.organizationId, // ScaleKit-specific
                 clientId: config.clientId,
                 clientSecret: config.clientSecret,
                 redirectUri: `${baseRedirectUri}${routePath}/auth/callback`,
@@ -154,6 +156,15 @@ class OAuthFlowHandler {
         if( effectiveResourceIndicators.length > 0 ) {
             effectiveResourceIndicators.forEach( ( resource ) => {
                 params.append( 'resource', resource )
+            } )
+        }
+
+        // ScaleKit-specific: Add organization_id for ScaleKit providers
+        if( config.authType === 'oauth21_scalekit' && config.organizationId ) {
+            params.set( 'organization_id', config.organizationId )
+            Logger.info( {
+                silent: this.#silent,
+                message: `Added organization_id ${config.organizationId} for ScaleKit route ${routePath}`
             } )
         }
         
@@ -304,10 +315,11 @@ class OAuthFlowHandler {
 
     #getConfigForRoute( { routePath } ) {
         const config = this.#routeConfigs.get( routePath )
-        
+
         if( !config ) {
             throw new Error( `No configuration found for route: ${routePath}` )
         }
+
 
         return config
     }

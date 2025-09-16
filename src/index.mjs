@@ -11,7 +11,7 @@ class McpAuthMiddleware {
     }
 
 
-    static async create( { routes, silent = false, baseUrl = 'http://localhost:3000', forceHttps = false } ) {
+    static async create( { routes, silent = false, baseUrl, forceHttps = false } ) {
         const { status, messages } = Validation.validationCreate( { routes, silent, baseUrl, forceHttps } )
         if( !status ) {
             throw new Error( `Validation failed: ${messages.join( ', ' )}` )

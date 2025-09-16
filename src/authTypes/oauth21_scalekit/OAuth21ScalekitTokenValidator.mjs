@@ -137,76 +137,84 @@ class OAuth21ScalekitTokenValidator {
     }
 
 
-    #validateToken( { token, resolve } ) {
-        // Check cache first
-        const cached = this.#validationCache.get( token )
-        if( cached && cached.expiresAt > Date.now() ) {
-            resolve( cached.result )
-            return
-        }
+    async #validateToken( { token, resolve } ) {
+        try {
+            // Check cache first
+            const cached = this.#validationCache.get( token )
+            if( cached && cached.expiresAt > Date.now() ) {
+                resolve( cached.result )
+                return
+            }
 
-        // Decode token header to get kid
-        const decoded = jwt.decode( token, { complete: true } )
+            // Decode token header to get kid
+            const decoded = jwt.decode( token, { complete: true } )
 
-        if( !decoded ) {
-            resolve( {
-                isValid: false,
-                error: 'Invalid token format',
-                decoded: null
-            } )
-            return
-        }
-
-        const { kid } = decoded.header
-
-        // Get signing key from JWKS
-        this.#jwksClient.getSigningKey( kid, ( err, key ) => {
-            if( err ) {
+            if( !decoded ) {
                 resolve( {
                     isValid: false,
-                    error: 'Failed to get signing key',
+                    error: 'Invalid token format',
                     decoded: null
                 } )
                 return
             }
 
-            const signingKey = key.getPublicKey()
+            const { kid } = decoded.header
 
-            // Verify token
-            jwt.verify(
-                token,
-                signingKey,
-                {
-                    algorithms: [ 'RS256' ],
-                    issuer: this.#config.providerUrl,  // Correct ScaleKit issuer (base URL)
-                    audience: this.#config.resource
-                },
-                ( verifyErr, decoded ) => {
-                    if( verifyErr ) {
-                        resolve( {
-                            isValid: false,
-                            error: verifyErr.message,
-                            decoded: null
-                        } )
-                        return
+            // Get signing key from JWKS using Promise-based approach for jwks-client 2.x
+            const key = await new Promise( ( keyResolve, keyReject ) => {
+                this.#jwksClient.getSigningKey( kid, ( err, result ) => {
+                    if( err ) {
+                        keyReject( err )
+                    } else {
+                        keyResolve( result )
                     }
+                } )
+            } )
 
-                    const result = {
-                        isValid: true,
-                        decoded,
-                        error: null
+            // For jwks-client 2.x, the key structure is different
+            const signingKey = key.publicKey || key.rsaPublicKey || key.getPublicKey()
+
+            // Verify token using Promise-based approach
+            const verifiedDecoded = await new Promise( ( verifyResolve, verifyReject ) => {
+                jwt.verify(
+                    token,
+                    signingKey,
+                    {
+                        algorithms: [ 'RS256' ],
+                        issuer: this.#config.providerUrl,  // Correct ScaleKit issuer (base URL)
+                        audience: this.#config.resource
+                    },
+                    ( verifyErr, decoded ) => {
+                        if( verifyErr ) {
+                            verifyReject( verifyErr )
+                        } else {
+                            verifyResolve( decoded )
+                        }
                     }
+                )
+            } )
 
-                    // Cache the result
-                    this.#validationCache.set( token, {
-                        result,
-                        expiresAt: Date.now() + 300000  // 5 minutes
-                    } )
+            const result = {
+                isValid: true,
+                decoded: verifiedDecoded,
+                error: null
+            }
 
-                    resolve( result )
-                }
-            )
-        } )
+            // Cache the result
+            this.#validationCache.set( token, {
+                result,
+                expiresAt: Date.now() + 300000  // 5 minutes
+            } )
+
+            resolve( result )
+
+        } catch( error ) {
+            resolve( {
+                isValid: false,
+                error: error.message || 'Failed to get signing key',
+                decoded: null
+            } )
+        }
     }
 
 

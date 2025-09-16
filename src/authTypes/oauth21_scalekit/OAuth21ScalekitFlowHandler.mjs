@@ -54,6 +54,11 @@ class OAuth21ScalekitFlowHandler {
             audience: this.#config.resource
         } )
 
+        // Add ScaleKit Production organization_id if configured
+        if( this.#config.organizationId ) {
+            authParams.set( 'organization_id', this.#config.organizationId )
+        }
+
         const authorizationUrl = `${this.#endpoints.authorizationEndpoint}?${authParams.toString()}`
 
         Logger.info( {

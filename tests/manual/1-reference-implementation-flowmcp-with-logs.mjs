@@ -1,19 +1,10 @@
 import cors from 'cors'
 import { DeployAdvanced } from 'flowmcpServers'
 import { McpAuthMiddleware } from '../../src/index.mjs'
-import { config } from './config.mjs'
+import { config } from './ConfigManager.mjs'
 
 
 const { routeConfigs, silent, baseUrl, forceHttps } = config
-
-console.log( '🔧 Starting FlowMCP OAuth Middleware Setup...' )
-console.log( '📋 Configuration:' )
-console.log( `   Base URL: ${baseUrl}` )
-console.log( `   Force HTTPS: ${forceHttps}` )
-console.log( `   Silent mode: ${silent}` )
-console.log( `   Route configs count: ${routeConfigs.length}` )
-console.log( '' )
-
 const objectOfMcpAuthRoutes = routeConfigs
     .reduce( ( acc, { routePath, auth, authType } ) => {
         if( !auth.enabled ) {
@@ -26,8 +17,6 @@ const objectOfMcpAuthRoutes = routeConfigs
         return acc
     }, {} )
 
-console.log( '' )
-console.log( '🔐 Creating OAuth Middleware...' )
 const oauthMiddleware = await McpAuthMiddleware
     .create({
         routes: objectOfMcpAuthRoutes,
