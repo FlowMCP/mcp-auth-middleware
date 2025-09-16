@@ -4,7 +4,7 @@ import { StaticBearerTester } from './StaticBearerTester.mjs'
 import { ConfigManager } from './ConfigManager.mjs'
 
 
-class Testing {
+class LocalTesting {
     static parseArgv( { argv } ) {
         const args = argv.slice( 2 )
         const params = {}
@@ -265,4 +265,4 @@ class Testing {
 }
 
 
-export { Testing }
+export { LocalTesting }

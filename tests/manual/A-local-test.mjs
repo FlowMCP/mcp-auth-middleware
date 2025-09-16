@@ -1,4 +1,4 @@
-import { Testing } from './Testing.mjs'
+import { LocalTesting } from './LocalTesting.mjs'
 
 
 const config = {
@@ -14,8 +14,8 @@ const config = {
 }
 
 const { authTypes, serverPaths } = config
-const  { authType: authTypKey, serverPath } = Testing.parseArgv( { argv: process.argv } )
-const { status, messages } = Testing.validationArgv( { authTypKey, serverPath, authTypes, serverPaths } )
+const  { authType: authTypKey, serverPath } = LocalTesting.parseArgv( { argv: process.argv } )
+const { status, messages } = LocalTesting.validationArgv( { authTypKey, serverPath, authTypes, serverPaths } )
 if( !status ) { throw new Error( `Input validation failed:\n- ${messages.join( '\n- ' )}` ) }
 
-await Testing.start( { authTypKey, serverPath } )
+await LocalTesting.start( { authTypKey, serverPath } )

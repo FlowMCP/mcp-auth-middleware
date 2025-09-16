@@ -39,7 +39,22 @@ class McpOAuthDiscoveryHandler {
                     silent: this.#silent
                 } )
 
-                // Use provider's own metadata generation if available
+                // Use provider's own discovery metadata generation if available (preferred)
+                if( authHandler.provider && typeof authHandler.provider.getDiscoveryMetadata === 'function' ) {
+                    const providerResult = authHandler.provider.getDiscoveryMetadata( { config: routeConfig } )
+
+                    if( providerResult.success ) {
+                        if( !this.#silent ) {
+                            Logger.info( {
+                                silent: this.#silent,
+                                message: `Generated provider-specific discovery metadata for ${routePath} (${routeConfig.authType})`
+                            } )
+                        }
+                        return providerResult
+                    }
+                }
+
+                // Fallback to legacy method for backward compatibility
                 if( authHandler.provider && typeof authHandler.provider.generateAuthorizationServerMetadata === 'function' ) {
                     const providerResult = authHandler.provider.generateAuthorizationServerMetadata( { config: routeConfig } )
 
@@ -47,7 +62,7 @@ class McpOAuthDiscoveryHandler {
                         if( !this.#silent ) {
                             Logger.info( {
                                 silent: this.#silent,
-                                message: `Generated provider-specific authorization server metadata for ${routePath} (${routeConfig.authType})`
+                                message: `Generated provider-specific authorization server metadata for ${routePath} (${routeConfig.authType}) via legacy method`
                             } )
                         }
                         return providerResult
@@ -61,52 +76,15 @@ class McpOAuthDiscoveryHandler {
             }
         }
 
-        // Fallback to default metadata generation
-        const { providerUrl, scope } = routeConfig
-
-        if( !providerUrl ) {
-            return {
-                success: false,
-                error: `Provider URL not configured for route ${routePath}`
-            }
-        }
-
-        if( !scope ) {
-            return {
-                success: false,
-                error: `Scope not configured for route ${routePath}`
-            }
-        }
-
-        const scopes = scope.split( ' ' )
-
-        const metadata = {
-            issuer: providerUrl,
-            authorization_endpoint: `${providerUrl}/authorize`,
-            token_endpoint: `${providerUrl}/oauth/token`,
-            userinfo_endpoint: `${providerUrl}/userinfo`,
-            jwks_uri: `${providerUrl}/.well-known/jwks.json`,
-            // Dynamic client registration removed - not universally supported
-            scopes_supported: scopes,
-            response_types_supported: [ 'code' ],
-            response_modes_supported: [ 'query', 'form_post' ],
-            grant_types_supported: [ 'authorization_code' ],
-            code_challenge_methods_supported: [ 'S256' ],
-            token_endpoint_auth_methods_supported: [ 'client_secret_basic', 'client_secret_post' ],
-            subject_types_supported: [ 'public' ],
-            claims_supported: [ 'sub', 'iat', 'exp', 'aud', 'iss', 'scope' ]
-        }
-
-        if( !this.#silent ) {
-            Logger.info( {
-                silent: this.#silent,
-                message: `Generated default OAuth authorization server metadata for ${routePath}`
-            } )
-        }
+        // No valid provider found - this should not happen with supported authTypes
+        Logger.error( {
+            silent: this.#silent,
+            message: `No provider found that supports discovery metadata generation for route ${routePath} with authType ${routeConfig.authType}`
+        } )
 
         return {
-            success: true,
-            metadata
+            success: false,
+            error: `Unsupported authType ${routeConfig.authType} for route ${routePath}. Provider must implement getDiscoveryMetadata() method.`
         }
     }
 

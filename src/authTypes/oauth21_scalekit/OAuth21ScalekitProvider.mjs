@@ -92,7 +92,7 @@ class OAuth21ScalekitProvider {
     }
 
 
-    generateAuthorizationServerMetadata( { config } ) {
+    getDiscoveryMetadata( { config } ) {
         const { providerUrl, mcpId, scope } = config
 
         // Parse scopes from space-separated string to array
@@ -120,7 +120,7 @@ class OAuth21ScalekitProvider {
         if( !this.#silent ) {
             Logger.info( {
                 silent: this.#silent,
-                message: `Generated ScaleKit authorization server metadata`
+                message: `Generated ScaleKit discovery metadata`
             } )
         }
 
@@ -128,6 +128,12 @@ class OAuth21ScalekitProvider {
             success: true,
             metadata
         }
+    }
+
+
+    generateAuthorizationServerMetadata( { config } ) {
+        // Delegate to the new standardized method
+        return this.getDiscoveryMetadata( { config } )
     }
 
 

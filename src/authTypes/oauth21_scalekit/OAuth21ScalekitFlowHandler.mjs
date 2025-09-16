@@ -268,7 +268,7 @@ class OAuth21ScalekitFlowHandler {
         const { providerUrl } = this.#config
 
         return {
-            authorizationEndpoint: `${providerUrl}/authorize`,
+            authorizationEndpoint: `${providerUrl}/oauth/authorize`,
             tokenEndpoint: `${providerUrl}/oauth/token`,
             userInfoUrl: `${providerUrl}/userinfo`,
             jwksUrl: `${providerUrl}/.well-known/jwks.json`

@@ -78,6 +78,44 @@ class OAuth21Auth0Provider {
     }
 
 
+    getDiscoveryMetadata( { config } ) {
+        const { providerUrl, scope } = config
+
+        // Parse scopes from space-separated string to array
+        const scopes = scope ? scope.split( ' ' ) : []
+
+        const metadata = {
+            issuer: `${providerUrl}`,  // Auth0 issuer (base URL)
+            authorization_endpoint: `${providerUrl}/authorize`,  // Auth0 uses /authorize (not /oauth/authorize)
+            token_endpoint: `${providerUrl}/oauth/token`,
+            userinfo_endpoint: `${providerUrl}/userinfo`,
+            jwks_uri: `${providerUrl}/.well-known/jwks.json`,  // Auth0 JWKS endpoint
+            // Auth0 requires pre-registered clients, registration endpoint would be at tenant level
+            registration_endpoint: `${config.baseUrl || 'http://localhost:3001'}/auth0-route/oauth/register`,
+            scopes_supported: scopes,
+            response_types_supported: [ 'code' ],
+            response_modes_supported: [ 'query', 'form_post' ],
+            grant_types_supported: [ 'authorization_code', 'client_credentials', 'refresh_token' ],
+            code_challenge_methods_supported: [ 'S256' ],
+            token_endpoint_auth_methods_supported: [ 'client_secret_basic', 'client_secret_post' ],
+            subject_types_supported: [ 'public' ],
+            claims_supported: [ 'sub', 'iat', 'exp', 'aud', 'iss', 'scope', 'email', 'email_verified', 'name', 'picture' ]
+        }
+
+        if( !this.#silent ) {
+            Logger.info( {
+                silent: this.#silent,
+                message: `Generated Auth0 discovery metadata`
+            } )
+        }
+
+        return {
+            success: true,
+            metadata
+        }
+    }
+
+
     getProviderName() {
         return 'oauth21_auth0'
     }
