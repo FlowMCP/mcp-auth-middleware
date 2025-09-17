@@ -158,6 +158,16 @@ class OAuth21ScalekitTokenValidator {
                 return
             }
 
+            // DEBUG: Log token payload to understand audience
+            if( !this.#silent ) {
+                console.log( '🔍 JWT Token Debug Info:' )
+                console.log( '   Issuer:', decoded.payload.iss )
+                console.log( '   Audience:', decoded.payload.aud )
+                console.log( '   Expected Resource:', this.#config.resource )
+                console.log( '   Subject:', decoded.payload.sub )
+                console.log( '   Scopes:', decoded.payload.scope || decoded.payload.scopes )
+            }
+
             const { kid } = decoded.header
 
             // Get signing key from JWKS using Promise-based approach for jwks-client 2.x

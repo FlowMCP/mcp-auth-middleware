@@ -1,7 +1,7 @@
 import fetch from 'node-fetch'
 
 const baseUrl = 'http://localhost:3000'
-const routePath = '/scalekit-route/streamable'
+const routePath = '/scalekit-route/sse'
 const bearerToken = 'supersecure'
 
 async function testMcpWithBearer() {

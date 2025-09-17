@@ -15,7 +15,7 @@ class ConfigManager {
             'route': '/scalekit-route',
             baseUrl,
             port,
-            'protocol': '/streamable',
+            'protocol': '/sse',
             authTypKey,
             forceHttps,
             'routePath': null,

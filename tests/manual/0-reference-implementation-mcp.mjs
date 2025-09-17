@@ -2,7 +2,6 @@ import express from 'express'
 import { randomUUID } from 'node:crypto'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 
 import { ConfigManager } from './ConfigManager.mjs'
 import { McpAuthMiddleware } from '../../src/index.mjs'
@@ -15,7 +14,6 @@ const { config, authTypValue } = await ConfigManager.getConfig( { authTypKey } )
 const { silent, baseUrl, forceHttps, routePath, fullPath, port } = config
 
 
-const server = new McpServer( { 'name': 'my-app', 'version': '1.0.0' } )
 const app = express()
 app.use( express.json() )
 
@@ -40,73 +38,60 @@ const oauthMiddleware = await McpAuthMiddleware.create({
 
 app.use( oauthMiddleware.router() )
 
-const transports = {}
-app.post( routePath, async ( req, res ) => {
-    const sessionId = req.headers['mcp-session-id']
-    let transport = sessionId && transports[sessionId]
+// Create MCP server instance
+const server = new McpServer( { name: 'example-server', version: '1.0.0' } )
 
-    if (!transport && isInitializeRequest(req.body)) {
-        transport = new StreamableHTTPServerTransport( {
-            sessionIdGenerator: randomUUID,
-            onsessioninitialized: id => ( transports[ id ] = transport ),
-        } )
-        transport.onclose = () => delete transports[ transport.sessionId ]
+// Register multiple tools for testing
+server.registerTool(
+    'ping',
+    {
+        'title': 'Ping',
+        'description': 'Simple ping tool that responds with pong'
+    },
+    async () => ( {
+        content: [ { type: 'text', text: 'pong' } ]
+    } )
+)
 
-        const server = new McpServer( { name: 'example-server', version: '1.0.0' } )
+server.registerTool(
+    'echo',
+    {
+        'title': 'Echo',
+        'description': 'Echo back the provided message'
+    },
+    async ( { message = 'hello' } ) => ( {
+        content: [ { type: 'text', text: `Echo: ${message}` } ]
+    } )
+)
 
-        // Register multiple tools for testing
-        server.registerTool(
-            'ping',
-            {
-                'title': 'Ping',
-                'description': 'Simple ping tool that responds with pong'
-            },
-            async () => ( {
-                content: [ { type: 'text', text: 'pong' } ]
-            } )
-        )
+server.registerTool(
+    'add',
+    {
+        'title': 'Add',
+        'description': 'Add two numbers'
+    },
+    async ( { a = 2, b = 3 } ) => ( {
+        content: [ { type: 'text', text: `Result: ${a + b}` } ]
+    } )
+)
 
-        server.registerTool(
-            'echo',
-            {
-                'title': 'Echo',
-                'description': 'Echo back the provided message'
-            },
-            async ( { message = 'hello' } ) => ( {
-                content: [ { type: 'text', text: `Echo: ${message}` } ]
-            } )
-        )
+// Create streamable HTTP transport
+const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID()
+})
 
-        server.registerTool(
-            'add',
-            {
-                'title': 'Add',
-                'description': 'Add two numbers'
-            },
-            async ( { a = 2, b = 3 } ) => ( {
-                content: [ { type: 'text', text: `Result: ${a + b}` } ]
-            } )
-        )
+// Connect MCP server to transport
+await server.connect( transport )
 
-        await server.connect( transport )
+// Mount the transport handler after OAuth middleware
+app.use( routePath, async ( req, res ) => {
+    try {
+        const parsedBody = req.body || {}
+        await transport.handleRequest( req, res, parsedBody )
+    } catch ( error ) {
+        console.error( 'Transport error:', error )
+        res.status( 500 ).json( { error: 'Internal server error' } )
     }
-
-    if (!transport) {
-        return res
-            .status( 400 )
-            .json( { jsonrpc: '2.0', error: { code: -32000, message: 'Bad Request' }, id: null } )
-    }
-
-    await transport.handleRequest( req, res, req.body )
 } )
-
-const handleSession = async ( req, res ) => {
-    const t = transports[ req.headers['mcp-session-id'] ]
-    if( !t ) { return res.status( 400 ).send( 'Invalid session' ) }
-    await t.handleRequest( req, res )
-}
-
-app.get( routePath, handleSession )
-app.delete( routePath, handleSession )
 
 app.listen( 3000, () => console.log( `MCP server running on ${fullPath}` ) )
