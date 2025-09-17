@@ -125,10 +125,11 @@ class McpAuthMiddleware {
 
         for( const [ routePath, config ] of this.#routeConfigs.entries() ) {
             try {
-                // Enhanced config with internal baseUrl for AuthType handlers
+                // Enhanced config with request-based URL capability for AuthType handlers
                 const enhancedConfig = {
                     ...config,
-                    _baseUrl: this.#baseUrl
+                    _baseUrl: this.#baseUrl,
+                    _getRequestBaseUrl: ( { req } ) => this.#getRequestBaseUrl( { req } )
                 }
 
                 const authHandler = await AuthTypeFactory.createAuthHandler( {
@@ -153,7 +154,8 @@ class McpAuthMiddleware {
                 .filter( ( [ route, config ] ) => config && config.authType && config.authType.includes( 'oauth' ) )
         )
 
-        // Determine base redirect URI from first route or use configured baseUrl
+        // Note: baseRedirectUri is set here but will be dynamically overridden in OAuth handlers
+        // to use request-based URLs for port consistency
         let baseRedirectUri = this.#baseUrl
         if( oauthRoutes && Object.keys( oauthRoutes ).length > 0 ) {
             const firstRoute = Object.keys( oauthRoutes )[0]
@@ -285,7 +287,7 @@ class McpAuthMiddleware {
             this.#router.get( '/.well-known/oauth-authorization-server', async ( req, res ) => {
                 try {
                     // Generate aggregated metadata for all OAuth routes
-                    const { success, metadata, error } = await this.#generateServerWideAuthorizationMetadata()
+                    const { success, metadata, error } = await this.#generateServerWideAuthorizationMetadata( { req } )
 
                     if( !success ) {
                         return res.status( 404 ).json( { error } )
@@ -310,7 +312,7 @@ class McpAuthMiddleware {
             // Root-level Protected Resource Metadata (RFC 9728)
             this.#router.get( '/.well-known/oauth-protected-resource', ( req, res ) => {
                 try {
-                    const { success, metadata, error } = this.#generateServerWideProtectedResourceMetadata()
+                    const { success, metadata, error } = this.#generateServerWideProtectedResourceMetadata( { req } )
 
                     if( !success ) {
                         return res.status( 404 ).json( { error } )
@@ -347,7 +349,7 @@ class McpAuthMiddleware {
     }
 
 
-    async #generateServerWideAuthorizationMetadata() {
+    async #generateServerWideAuthorizationMetadata( { req } ) {
         // Generate authorization server metadata that covers all OAuth routes on the server
         if( !this.#oauth21 ) {
             return {
@@ -368,10 +370,16 @@ class McpAuthMiddleware {
                 }
             }
 
-            // Create auth handler for metadata generation
+            // Create auth handler for metadata generation with enhanced config
+            const enhancedRoutConfig = {
+                ...routeConfig,
+                _baseUrl: this.#baseUrl,
+                _getRequestBaseUrl: ( { req } ) => this.#getRequestBaseUrl( { req } )
+            }
+
             const authHandler = await AuthTypeFactory.createAuthHandler( {
                 authType: routeConfig.authType,
-                config: routeConfig,
+                config: enhancedRoutConfig,
                 silent: this.#silent
             } )
 
@@ -381,10 +389,11 @@ class McpAuthMiddleware {
 
                 if( providerResult.success ) {
                     // Enhance metadata with server-wide information
+                    const requestBaseUrl = this.#getRequestBaseUrl( { req } )
                     const enhancedMetadata = {
                         ...providerResult.metadata,
                         // Add server-wide scope covering all OAuth routes
-                        protected_resources: this.#oauth21.attachedRoutes.map( route => `${this.#baseUrl}${route}` )
+                        protected_resources: this.#oauth21.attachedRoutes.map( route => `${requestBaseUrl}${route}` )
                     }
 
                     return {
@@ -407,7 +416,7 @@ class McpAuthMiddleware {
     }
 
 
-    #generateServerWideProtectedResourceMetadata() {
+    #generateServerWideProtectedResourceMetadata( { req } ) {
         // Generate protected resource metadata for all OAuth-protected routes
         if( !this.#oauth21 ) {
             return {
@@ -427,12 +436,14 @@ class McpAuthMiddleware {
             }
         }
 
+        const requestBaseUrl = this.#getRequestBaseUrl( { req } )
+
         // RFC 9728 Protected Resource Metadata for server-wide protection
         const metadata = {
             // Required fields per RFC 9728
-            resource: `${this.#baseUrl}/*`,  // Server-wide resource protection
+            resource: `${requestBaseUrl}/*`,  // Server-wide resource protection
             authorization_servers: [
-                this.#baseUrl  // Our server acts as the authorization server endpoint
+                requestBaseUrl  // Our server acts as the authorization server endpoint
             ],
 
             // Optional but recommended fields
@@ -444,18 +455,18 @@ class McpAuthMiddleware {
             resource_signing_alg_values_supported: [ 'RS256', 'RS384', 'RS512' ],
 
             // Server-wide protection information
-            protected_resources: oauthRoutes.map( route => `${this.#baseUrl}${route}` ),
+            protected_resources: oauthRoutes.map( route => `${requestBaseUrl}${route}` ),
             auth_type: routeConfig.authType,
 
             // Links per RFC 9728
             links: [
                 {
                     rel: 'authorization_server',
-                    href: `${this.#baseUrl}/.well-known/oauth-authorization-server`
+                    href: `${requestBaseUrl}/.well-known/oauth-authorization-server`
                 },
                 {
                     rel: 'protected_resources',
-                    href: oauthRoutes.map( route => `${this.#baseUrl}${route}` )
+                    href: oauthRoutes.map( route => `${requestBaseUrl}${route}` )
                 }
             ]
         }
@@ -584,6 +595,7 @@ class McpAuthMiddleware {
 
     #handleProtectedResourceMetadata( { req, res, routePath } ) {
         const config = this.#routeConfigs.get( routePath )
+        const requestBaseUrl = this.#getRequestBaseUrl( { req } )
         const baseUrl = this.#generateURL( { req, routePath } )
         const resourceUri = `${baseUrl}${routePath}`
         
@@ -598,14 +610,14 @@ class McpAuthMiddleware {
                 // For OAuth 2.1 with external providers, point to our local middleware as the authorization server
                 // This allows MCP clients to discover our registration endpoint and OAuth flow
                 config.authType === 'oauth21_scalekit'
-                    ? this.#baseUrl
+                    ? requestBaseUrl
                     : `${config.providerUrl}/realms/${config.realm}`
             ],
             
             // Optional but recommended fields
             jwks_uri: config.jwksUrl,
             scopes_supported: config.requiredScopes,
-            resource_documentation: `${baseUrl}${routePath}/discovery`,
+            resource_documentation: `${requestBaseUrl}${routePath}/discovery`,
             
             // Additional OAuth 2.1 and security information
             bearer_methods_supported: [ 'header' ], // RFC 6750 - Bearer token in Authorization header only
@@ -630,11 +642,11 @@ class McpAuthMiddleware {
                 },
                 {
                     rel: 'login',
-                    href: `${baseUrl}${routePath}/auth/login`
+                    href: `${requestBaseUrl}${routePath}/auth/login`
                 },
                 {
                     rel: 'discovery',
-                    href: `${baseUrl}${routePath}/discovery`
+                    href: `${requestBaseUrl}${routePath}/discovery`
                 }
             ]
         }
@@ -1118,12 +1130,19 @@ class McpAuthMiddleware {
     #generateURL( { req, routePath = null, path = '' } ) {
         // Get route-specific config if routePath is provided
         const config = routePath ? this.#routeConfigs.get( routePath ) : null
-        
+
         // Determine protocol: route-specific forceHttps > global forceHttps > req.protocol
         const forceHttps = config?.forceHttps ?? this.#forceHttps
         const protocol = forceHttps ? 'https' : req.protocol
-        
+
         return `${protocol}://${req.get( 'host' )}${path}`
+    }
+
+
+    #getRequestBaseUrl( { req, routePath = null } ) {
+        // Consistent helper for request-based baseURL generation
+        // Replaces this.#baseUrl usage to ensure port consistency
+        return this.#generateURL( { req, routePath, path: '' } )
     }
 
 
@@ -1328,7 +1347,7 @@ class McpAuthMiddleware {
             client_secret: config.clientSecret,
             client_id_issued_at: Math.floor( Date.now() / 1000 ),
             // Standard DCR response fields
-            redirect_uris: [ `${this.#baseUrl}${routePath}/auth/callback` ],
+            redirect_uris: [ `${this.#getRequestBaseUrl( { req } )}${routePath}/auth/callback` ],
             response_types: [ 'code' ],
             grant_types: [ 'authorization_code', 'refresh_token' ],
             token_endpoint_auth_method: 'client_secret_post',
