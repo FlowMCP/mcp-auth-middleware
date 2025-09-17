@@ -22,10 +22,6 @@ class AuthTypeFactory {
 
 
     static async #instantiateHandler( { authType, config, handlerConfig, silent } ) {
-        if( authType === 'oauth21_auth0' ) {
-            return await AuthTypeFactory.#createOAuth21Auth0Handler( { config, handlerConfig, silent } )
-        }
-
         if( authType === 'oauth21_scalekit' ) {
             return await AuthTypeFactory.#createOAuth21ScalekitHandler( { config, handlerConfig, silent } )
         }
@@ -35,39 +31,6 @@ class AuthTypeFactory {
         }
 
         throw new Error( `No factory implementation found for authType: ${authType}` )
-    }
-
-
-    static async #createOAuth21Auth0Handler( { config, handlerConfig, silent } ) {
-        try {
-            const { OAuth21Auth0Provider } = await import( handlerConfig.providerPath )
-            const { OAuth21Auth0TokenValidator } = await import( handlerConfig.tokenValidatorPath )
-            const { OAuth21Auth0FlowHandler } = await import( handlerConfig.flowHandlerPath )
-
-            const provider = new OAuth21Auth0Provider( { config, silent } )
-
-            // Generate endpoints and integrate them into config
-            const { endpoints } = provider.generateEndpoints( { config } )
-            const enhancedConfig = {
-                ...config,
-                ...endpoints  // Add generated endpoints to config
-            }
-
-            const tokenValidator = new OAuth21Auth0TokenValidator( { config: enhancedConfig, silent } )
-            const flowHandler = new OAuth21Auth0FlowHandler( { config: enhancedConfig, silent } )
-
-            const authHandler = {
-                authType: 'oauth21_auth0',
-                provider,
-                tokenValidator,
-                flowHandler,
-                config: enhancedConfig  // Use enhanced config with endpoints
-            }
-
-            return authHandler
-        } catch( error ) {
-            throw new Error( `Failed to create OAuth21Auth0 handler: ${error.message}` )
-        }
     }
 
 

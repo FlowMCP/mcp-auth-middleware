@@ -14,13 +14,11 @@
         "test:performance": "NODE_OPTIONS='--experimental-vm-modules' jest tests/performance",
         "test:coverage:src": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage --collectCoverageFrom='src/**/*.mjs'",
         "test:file": "NODE_OPTIONS='--experimental-vm-modules' jest",
-        "test:auth:scalekit": "node tests/manual/A-scale-kit-test.mjs authType=oauth21_scalekit serverPath=tests/manual/0-reference-implementation-mcp.mjs",
-        "test:auth:auth0": "node tests/manual/A-scale-kit-test.mjs authType=oauth21_auth0 serverPath=tests/manual/0-reference-implementation-mcp.mjs",
-        "test:auth:bearer": "node tests/manual/A-scale-kit-test.mjs authType=staticBearer serverPath=tests/manual/0-reference-implementation-mcp.mjs",
-        "start:demo": "node tests/manual/1-reference-implementation-flowmcp.mjs",
+        "test:auth:scalekit": "node tests/manual/A-local-test.mjs authType=oauth21_scalekit serverPath=tests/manual/0-reference-implementation-mcp.mjs",
+        "test:auth:auth0": "node tests/manual/A-local-test.mjs authType=oauth21_auth0 serverPath=tests/manual/0-reference-implementation-mcp.mjs",
+        "test:auth:bearer": "node tests/manual/A-local-test.mjs authType=staticBearer serverPath=tests/manual/0-reference-implementation-mcp.mjs",
         "start:mcp": "node tests/manual/0-reference-implementation-mcp.mjs",
         "start:flowmcp": "node tests/manual/1-reference-implementation-flowmcp.mjs",
-        "start:debug": "node tests/manual/debug-scalekit-server.mjs",
         "inspector": "mcp-inspector"
     },
     "keywords": [

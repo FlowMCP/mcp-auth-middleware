@@ -12,16 +12,31 @@ import { McpAuthMiddleware } from '../../src/index.mjs'
 const authTypKey = 'oauth21_scalekit'
 
 const { config, authTypValue } = await ConfigManager.getConfig( { authTypKey } )
-const { silent, baseUrl, forceHttps, routePath, fullPath } = config
+const { silent, baseUrl, forceHttps, routePath, fullPath, port } = config
 
 
 const server = new McpServer( { 'name': 'my-app', 'version': '1.0.0' } )
 const app = express()
 app.use( express.json() )
 
-const routes = { [ routePath ]: authTypValue }
-const oauthMiddleware = await McpAuthMiddleware
-    .create( { routes, silent, baseUrl, forceHttps } )
+// Create middleware with new API structure - ScaleKit OAuth21
+const oauthMiddleware = await McpAuthMiddleware.create({
+    oauth21: {
+        authType: 'oauth21_scalekit',
+        attachedRoutes: [routePath],
+        options: {
+            providerUrl: authTypValue.providerUrl,
+            mcpId: authTypValue.mcpId,
+            clientId: authTypValue.clientId,
+            clientSecret: authTypValue.clientSecret,
+            resource: authTypValue.resource,
+            scope: authTypValue.scope
+        }
+    },
+    silent: false,
+    baseUrl: `${baseUrl}:${port}`,
+    forceHttps
+})
 
 app.use( oauthMiddleware.router() )
 

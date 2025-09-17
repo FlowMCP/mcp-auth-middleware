@@ -24,8 +24,8 @@ class OAuthFlowHandler {
         // Initialize all route configurations
         Object.entries( routes ).forEach( ( [ routePath, config ] ) => {
             // OAuthFlowHandler supports OAuth-based auth types (staticBearer has no OAuth flow)
-            if( !['oauth21_auth0', 'oauth21_scalekit'].includes(config.authType) ) {
-                throw new Error( `OAuthFlowHandler only supports oauth21_auth0, oauth21_scalekit, got: ${config.authType}` )
+            if( !['oauth21_scalekit'].includes(config.authType) ) {
+                throw new Error( `OAuthFlowHandler only supports oauth21_scalekit, got: ${config.authType}` )
             }
 
             const normalizedConfig = {
@@ -94,28 +94,8 @@ class OAuthFlowHandler {
     static create( { providerUrl, realm, clientId, clientSecret, redirectUri, authType = 'oauth21_auth0', silent = false, authorizationEndpoint = null, tokenEndpoint = null, deviceAuthorizationEndpoint = null } ) {
         const handler = new OAuthFlowHandler( { silent } )
 
-        // Require oauth21_auth0 authType
-        if( authType !== 'oauth21_auth0' ) {
-            throw new Error( `OAuthFlowHandler.create() only supports oauth21_auth0, got: ${authType}` )
-        }
-
-        const config = {
-            providerUrl,
-            realm,
-            clientId,
-            clientSecret,
-            redirectUri,
-            authType,
-            // URLs provided by AuthType handlers
-            authorizationEndpoint,
-            tokenEndpoint,
-            deviceAuthorizationEndpoint
-        }
-
-        // For backwards compatibility - store as single route
-        handler.#routeConfigs.set( 'default', config )
-
-        return handler
+        // Legacy method - deprecated for new API
+        throw new Error( `OAuthFlowHandler.create() is deprecated. Use createForMultiRealm() for oauth21_scalekit` )
     }
 
 

@@ -6,32 +6,27 @@ describe('StaticBearer Integration Tests', () => {
     let app, middleware
 
     const testConfig = {
-        routes: {
-            '/api': {
-                authType: 'staticBearer',
-                token: 'integration-test-token-123456',
-                realm: 'api-realm'
-            }
+        staticBearer: {
+            tokenSecret: 'integration-test-token-123456',
+            attachedRoutes: [ '/api' ]
         },
-        silent: true
+        silent: true,
+        baseUrl: 'http://localhost:3000'
     }
 
     beforeEach(async () => {
-        middleware = await McpAuthMiddleware.create({ 
-            routes: testConfig.routes, 
-            silent: testConfig.silent 
-        })
-        
+        middleware = await McpAuthMiddleware.create(testConfig)
+
         app = express()
         app.use(express.json())
         app.use(middleware.router())
-        
+
         // Add a protected test endpoint
         app.get('/api/protected', (req, res) => {
-            res.json({ 
+            res.json({
                 message: 'Protected resource accessed',
                 user: req.user,
-                authRealm: req.authRealm
+                authType: req.authType
             })
         })
     })
@@ -45,7 +40,7 @@ describe('StaticBearer Integration Tests', () => {
 
             expect(response.body.message).toBe('Protected resource accessed')
             expect(response.body.user).toBeDefined()
-            expect(response.body.authRealm).toBe('api-realm')
+            expect(response.body.authType).toBe('staticBearer')
         })
 
         test('allows access with correct bearer token (lowercase)', async () => {
@@ -121,38 +116,30 @@ describe('StaticBearer Integration Tests', () => {
 
         beforeEach(async () => {
             const multiRouteConfig = {
-                routes: {
-                    '/api': {
-                        authType: 'staticBearer',
-                        token: 'api-token-123456'
-                    },
-                    '/admin': {
-                        authType: 'staticBearer', 
-                        token: 'admin-token-789012'
-                    }
+                staticBearer: {
+                    tokenSecret: 'api-token-123456',
+                    attachedRoutes: [ '/api', '/admin' ]
                 },
-                silent: true
+                silent: true,
+        baseUrl: 'http://localhost:3000'
             }
 
-            multiRouteMiddleware = await McpAuthMiddleware.create({ 
-                routes: multiRouteConfig.routes, 
-                silent: multiRouteConfig.silent 
-            })
-            
+            multiRouteMiddleware = await McpAuthMiddleware.create(multiRouteConfig)
+
             multiRouteApp = express()
             multiRouteApp.use(express.json())
             multiRouteApp.use(multiRouteMiddleware.router())
-            
+
             multiRouteApp.get('/api/data', (req, res) => {
                 res.json({ endpoint: 'api', message: 'API data' })
             })
-            
+
             multiRouteApp.get('/admin/users', (req, res) => {
                 res.json({ endpoint: 'admin', message: 'Admin users' })
             })
         })
 
-        test('allows API access with API token', async () => {
+        test('allows API access with correct token', async () => {
             const response = await request(multiRouteApp)
                 .get('/api/data')
                 .set('Authorization', 'Bearer api-token-123456')
@@ -161,65 +148,61 @@ describe('StaticBearer Integration Tests', () => {
             expect(response.body.endpoint).toBe('api')
         })
 
-        test('allows admin access with admin token', async () => {
+        test('allows admin access with correct token', async () => {
             const response = await request(multiRouteApp)
                 .get('/admin/users')
-                .set('Authorization', 'Bearer admin-token-789012')
+                .set('Authorization', 'Bearer api-token-123456')
                 .expect(200)
 
             expect(response.body.endpoint).toBe('admin')
         })
 
-        test('blocks API access with admin token', async () => {
+        test('blocks API access with wrong token', async () => {
             await request(multiRouteApp)
                 .get('/api/data')
-                .set('Authorization', 'Bearer admin-token-789012')
+                .set('Authorization', 'Bearer wrong-token')
                 .expect(401)
         })
 
-        test('blocks admin access with API token', async () => {
+        test('blocks admin access with wrong token', async () => {
             await request(multiRouteApp)
                 .get('/admin/users')
-                .set('Authorization', 'Bearer api-token-123456')
+                .set('Authorization', 'Bearer wrong-token')
                 .expect(401)
         })
     })
 
-    describe('Mixed AuthType Support', () => {
+    describe('Mixed Auth Types Support', () => {
         let mixedApp, mixedMiddleware
 
         beforeEach(async () => {
             const mixedConfig = {
-                routes: {
-                    '/api': {
-                        authType: 'staticBearer',
-                        token: 'static-bearer-token-123'
-                    },
-                    '/oauth': {
-                        authType: 'oauth21_auth0',
-                        providerUrl: 'https://tenant.auth0.com',
+                staticBearer: {
+                    tokenSecret: 'static-bearer-token-123',
+                    attachedRoutes: [ '/api' ]
+                },
+                oauth21: {
+                    authType: 'oauth21_scalekit',
+                    attachedRoutes: [ '/oauth' ],
+                    options: {
+                        providerUrl: 'https://auth.scalekit.com',
+                        mcpId: 'res_test123',
                         clientId: 'test-client-id',
                         clientSecret: 'test-client-secret',
-                        scope: 'openid profile email',
-                        audience: 'https://api.example.com',
-                        realm: 'test-realm',
-                        authFlow: 'authorization_code',
-                        requiredScopes: [ 'openid', 'profile', 'email' ],
-                        requiredRoles: [ 'user' ]
+                        resource: 'mcp:tools:*',
+                        scope: 'mcp:tools:* mcp:resources:read'
                     }
                 },
-                silent: true
+                silent: true,
+        baseUrl: 'http://localhost:3000'
             }
 
-            mixedMiddleware = await McpAuthMiddleware.create({ 
-                routes: mixedConfig.routes, 
-                silent: mixedConfig.silent 
-            })
-            
+            mixedMiddleware = await McpAuthMiddleware.create(mixedConfig)
+
             mixedApp = express()
             mixedApp.use(express.json())
             mixedApp.use(mixedMiddleware.router())
-            
+
             mixedApp.get('/api/simple', (req, res) => {
                 res.json({ authType: 'staticBearer', message: 'Simple auth' })
             })
@@ -248,13 +231,13 @@ describe('StaticBearer Integration Tests', () => {
         test('getRouteConfig returns correct config for staticBearer', () => {
             const apiConfig = mixedMiddleware.getRouteConfig({ routePath: '/api' })
             expect(apiConfig.authType).toBe('staticBearer')
-            expect(apiConfig.token).toBe('static-bearer-token-123')
+            expect(apiConfig.tokenSecret).toBe('static-bearer-token-123')
         })
 
-        test('getRouteConfig returns correct config for oauth21_auth0', () => {
+        test('getRouteConfig returns correct config for oauth21_scalekit', () => {
             const oauthConfig = mixedMiddleware.getRouteConfig({ routePath: '/oauth' })
-            expect(oauthConfig.authType).toBe('oauth21_auth0')
-            expect(oauthConfig.providerUrl).toBe('https://tenant.auth0.com')
+            expect(oauthConfig.authType).toBe('oauth21_scalekit')
+            expect(oauthConfig.providerUrl).toBe('https://auth.scalekit.com')
         })
     })
 
@@ -262,19 +245,15 @@ describe('StaticBearer Integration Tests', () => {
         test('handles very long tokens', async () => {
             const longToken = 'a'.repeat(1000)
             const longTokenConfig = {
-                routes: {
-                    '/api': {
-                        authType: 'staticBearer',
-                        token: longToken
-                    }
+                staticBearer: {
+                    tokenSecret: longToken,
+                    attachedRoutes: [ '/api' ]
                 },
-                silent: true
+                silent: true,
+        baseUrl: 'http://localhost:3000'
             }
 
-            const longTokenMiddleware = await McpAuthMiddleware.create({ 
-                routes: longTokenConfig.routes, 
-                silent: longTokenConfig.silent 
-            })
+            const longTokenMiddleware = await McpAuthMiddleware.create(longTokenConfig)
             const longTokenApp = express()
             longTokenApp.use(longTokenMiddleware.router())
             longTokenApp.get('/api/test', (req, res) => res.json({ ok: true }))
@@ -290,19 +269,15 @@ describe('StaticBearer Integration Tests', () => {
         test('handles tokens with special characters', async () => {
             const specialToken = 'token-with_special.chars+and=symbols&more%20stuff'
             const specialConfig = {
-                routes: {
-                    '/api': {
-                        authType: 'staticBearer',
-                        token: specialToken
-                    }
+                staticBearer: {
+                    tokenSecret: specialToken,
+                    attachedRoutes: [ '/api' ]
                 },
-                silent: true
+                silent: true,
+        baseUrl: 'http://localhost:3000'
             }
 
-            const specialMiddleware = await McpAuthMiddleware.create({ 
-                routes: specialConfig.routes, 
-                silent: specialConfig.silent 
-            })
+            const specialMiddleware = await McpAuthMiddleware.create(specialConfig)
             const specialApp = express()
             specialApp.use(specialMiddleware.router())
             specialApp.get('/api/test', (req, res) => res.json({ ok: true }))

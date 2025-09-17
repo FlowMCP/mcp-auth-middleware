@@ -3,7 +3,7 @@ import { StaticBearerTokenValidator } from '../../../../src/authTypes/staticBear
 describe('StaticBearerTokenValidator', () => {
     let validator
     const mockConfig = {
-        token: 'test-token-123456'
+        tokenSecret: 'test-token-123456'
     }
 
     beforeEach(() => {
@@ -24,7 +24,7 @@ describe('StaticBearerTokenValidator', () => {
         })
 
         test('trims configured token', () => {
-            const configWithSpaces = { token: '  test-token-123456  ' }
+            const configWithSpaces = { tokenSecret: '  test-token-123456  ' }
             const trimValidator = new StaticBearerTokenValidator({ config: configWithSpaces, silent: true })
             
             expect(trimValidator).toBeInstanceOf(StaticBearerTokenValidator)
@@ -130,7 +130,7 @@ describe('StaticBearerTokenValidator', () => {
 
         test('preserves token case after extraction', async () => {
             const upperCaseValidator = new StaticBearerTokenValidator({ 
-                config: { token: 'TOKEN123ABC' }, 
+                config: { tokenSecret: 'TOKEN123ABC' }, 
                 silent: true 
             })
             
@@ -196,7 +196,7 @@ describe('StaticBearerTokenValidator', () => {
             const config = validator.getConfig()
             
             expect(config.authType).toBe('staticBearer')
-            expect(config.tokenLength).toBe(mockConfig.token.length)
+            expect(config.tokenLength).toBe(mockConfig.tokenSecret.length)
             expect(config.token).toBeUndefined() // Should not expose actual token
         })
     })
@@ -205,7 +205,7 @@ describe('StaticBearerTokenValidator', () => {
         test('handles very long tokens', async () => {
             const longToken = 'a'.repeat(1000)
             const longTokenValidator = new StaticBearerTokenValidator({ 
-                config: { token: longToken }, 
+                config: { tokenSecret: longToken }, 
                 silent: true 
             })
             
@@ -218,7 +218,7 @@ describe('StaticBearerTokenValidator', () => {
         test('handles tokens with special characters', async () => {
             const specialToken = 'token-with_special.chars+and=symbols'
             const specialTokenValidator = new StaticBearerTokenValidator({ 
-                config: { token: specialToken }, 
+                config: { tokenSecret: specialToken }, 
                 silent: true 
             })
             
@@ -231,7 +231,7 @@ describe('StaticBearerTokenValidator', () => {
         test('handles tokens that contain the word Bearer', async () => {
             const bearerContainingToken = 'my-bearer-token-contains-bearer-word'
             const bearerValidator = new StaticBearerTokenValidator({ 
-                config: { token: bearerContainingToken }, 
+                config: { tokenSecret: bearerContainingToken }, 
                 silent: true 
             })
             

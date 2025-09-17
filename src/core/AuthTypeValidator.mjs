@@ -43,10 +43,6 @@ class AuthTypeValidator {
     static #validateSchemaForAuthType( { authType, config } ) {
         const struct = { status: false, messages: [] }
 
-        if( authType === 'oauth21_auth0' ) {
-            return AuthTypeValidator.#validateOAuth21Auth0Schema( { config } )
-        }
-
         if( authType === 'oauth21_scalekit' ) {
             return AuthTypeValidator.#validateOAuth21ScalekitSchema( { config } )
         }
@@ -56,78 +52,6 @@ class AuthTypeValidator {
         }
 
         struct['messages'].push( `No schema validator found for authType: ${authType}` )
-        return struct
-    }
-
-
-    static #validateOAuth21Auth0Schema( { config } ) {
-        const struct = { status: false, messages: [] }
-
-        const requiredFields = [
-            [ 'providerUrl', 'string' ],
-            [ 'clientId', 'string' ],
-            [ 'clientSecret', 'string' ],
-            [ 'scope', 'string' ],
-            [ 'audience', 'string' ],
-            [ 'realm', 'string' ],
-            [ 'authFlow', 'string' ],
-            [ 'requiredScopes', 'array' ],
-            [ 'requiredRoles', 'array' ]
-        ]
-
-        const missingFields = []
-        const typeErrors = []
-
-        requiredFields
-            .forEach( ( [ key, type ] ) => {
-                const value = config[ key ]
-                if( value === undefined || value === null ) {
-                    missingFields.push( key )
-                } else if( type === 'array' && !Array.isArray( value ) ) {
-                    typeErrors.push( `config.${key}: Must be an array` )
-                } else if( type !== 'array' && typeof value !== type ) {
-                    typeErrors.push( `config.${key}: Must be a ${type}` )
-                }
-            } )
-
-        // Add collective missing fields message
-        if( missingFields.length > 0 ) {
-            struct['messages'].push( `OAuth21 Auth0 configuration missing required fields: ${missingFields.join( ', ' )}` )
-        }
-
-        // Add individual type error messages
-        struct['messages'].push( ...typeErrors )
-
-        // Auth0-specific domain validation - accept any valid URL
-        if( config.providerUrl && typeof config.providerUrl === 'string' ) {
-            try {
-                new URL( config.providerUrl )
-            } catch( error ) {
-                struct['messages'].push( `OAuth21 Auth0 configuration requires valid URL in providerUrl, got: ${config.providerUrl}` )
-            }
-        }
-
-        const optionalFields = [
-            [ 'redirectUri', 'string' ],
-            [ 'responseType', 'string' ],
-            [ 'grantType', 'string' ],
-            [ 'tokenEndpoint', 'string' ],
-            [ 'userInfoEndpoint', 'string' ]
-        ]
-
-        optionalFields
-            .forEach( ( [ key, type ] ) => {
-                const value = config[ key ]
-                if( value !== undefined && typeof value !== type ) {
-                    struct['messages'].push( `config.${key}: Must be a ${type} when provided` )
-                }
-            } )
-
-        if( struct['messages'].length > 0 ) {
-            return struct
-        }
-
-        struct['status'] = true
         return struct
     }
 
@@ -210,9 +134,9 @@ class AuthTypeValidator {
 
     static #validateStaticBearerSchema( { config } ) {
         const struct = { status: false, messages: [] }
-        
+
         const requiredFields = [
-            [ 'token', 'string' ]
+            [ 'tokenSecret', 'string' ]
         ]
 
         const missingFields = []
@@ -234,11 +158,11 @@ class AuthTypeValidator {
 
         struct['messages'].push( ...typeErrors )
 
-        if( config.token && typeof config.token === 'string' ) {
-            if( config.token.trim().toLowerCase().startsWith( 'bearer' ) ) {
+        if( config.tokenSecret && typeof config.tokenSecret === 'string' ) {
+            if( config.tokenSecret.trim().toLowerCase().startsWith( 'bearer' ) ) {
                 struct['messages'].push( `StaticBearer token must not start with "Bearer" prefix` )
             }
-            if( config.token.trim().length < 8 ) {
+            if( config.tokenSecret.trim().length < 8 ) {
                 struct['messages'].push( `StaticBearer token must be at least 8 characters long` )
             }
         }

@@ -5,13 +5,13 @@ import { AuthTypeRegistry } from '../core/AuthTypeRegistry.mjs'
 class Validation {
     static validationCreate( createParams ) {
         // Extract known parameters and check for unknown ones
-        const { routes, silent, baseUrl, forceHttps, ...unknownParams } = createParams || {}
+        const { staticBearer, oauth21, silent, baseUrl, forceHttps, ...unknownParams } = createParams || {}
         const struct = { status: false, messages: [] }
 
         // Check for unknown parameters
         const unknownKeys = Object.keys( unknownParams )
         if( unknownKeys.length > 0 ) {
-            struct['messages'].push( `Unknown parameters: ${unknownKeys.join( ', ' )}. Allowed: routes, silent, baseUrl, forceHttps` )
+            struct['messages'].push( `Unknown parameters: ${unknownKeys.join( ', ' )}. Allowed: staticBearer, oauth21, silent, baseUrl, forceHttps` )
         }
 
         // Check if createParams is provided at all
@@ -20,20 +20,15 @@ class Validation {
             return struct
         }
 
-        // Required parameter: routes
-        if( routes === undefined || routes === null ) {
-            struct['messages'].push( 'routes: Missing value' )
-        } else if( typeof routes !== 'object' || Array.isArray( routes ) ) {
-            struct['messages'].push( 'routes: Must be an object' )
-        }
-
         // Optional parameter: silent
         if( silent !== undefined && typeof silent !== 'boolean' ) {
             struct['messages'].push( 'silent: Must be a boolean' )
         }
 
-        // Optional parameter: baseUrl
-        if( baseUrl !== undefined ) {
+        // Required parameter: baseUrl
+        if( baseUrl === undefined || baseUrl === null ) {
+            struct['messages'].push( 'baseUrl: Required parameter is missing' )
+        } else {
             if( typeof baseUrl !== 'string' ) {
                 struct['messages'].push( 'baseUrl: Must be a string' )
             } else if( baseUrl.trim() === '' ) {
@@ -69,50 +64,113 @@ class Validation {
             return struct
         }
 
-        // Validate routes structure
-        if( typeof routes === 'object' && !Array.isArray( routes ) ) {
-            Object.entries( routes ).forEach( ( [ routePath, config ] ) => {
-                if( !routePath || !routePath.startsWith( '/' ) ) {
-                    struct['messages'].push( `Route "${routePath}": Must start with /` )
+        // Validate staticBearer configuration
+        if( staticBearer !== undefined && staticBearer !== null ) {
+            if( typeof staticBearer !== 'object' ) {
+                struct['messages'].push( 'staticBearer: Must be an object' )
+            } else {
+                // Validate required tokenSecret
+                if( staticBearer.tokenSecret === undefined || staticBearer.tokenSecret === null ) {
+                    struct['messages'].push( 'staticBearer.tokenSecret: Missing value' )
+                } else if( typeof staticBearer.tokenSecret !== 'string' ) {
+                    struct['messages'].push( 'staticBearer.tokenSecret: Must be a string' )
+                } else if( staticBearer.tokenSecret.trim() === '' ) {
+                    struct['messages'].push( 'staticBearer.tokenSecret: Cannot be empty' )
                 }
 
-                if( !config || typeof config !== 'object' ) {
-                    struct['messages'].push( `Route "${routePath}": Configuration must be an object` )
+                // Validate required attachedRoutes
+                if( staticBearer.attachedRoutes === undefined || staticBearer.attachedRoutes === null ) {
+                    struct['messages'].push( 'staticBearer.attachedRoutes: Missing value' )
+                } else if( !Array.isArray( staticBearer.attachedRoutes ) ) {
+                    struct['messages'].push( 'staticBearer.attachedRoutes: Must be an array' )
+                } else if( staticBearer.attachedRoutes.length === 0 ) {
+                    struct['messages'].push( 'staticBearer.attachedRoutes: Cannot be empty array' )
                 } else {
-                    // Validate required authType field
-                    if( !config.authType ) {
-                        struct['messages'].push( `Route "${routePath}": Missing required field: authType` )
-                    } else if( typeof config.authType !== 'string' ) {
-                        struct['messages'].push( `Route "${routePath}": authType must be a string` )
-                    } else {
-                        // Validate authType configuration using AuthTypeValidator
+                    staticBearer.attachedRoutes.forEach( ( route, index ) => {
+                        if( typeof route !== 'string' ) {
+                            struct['messages'].push( `staticBearer.attachedRoutes[${index}]: Must be a string` )
+                        } else if( !route.startsWith( '/' ) ) {
+                            struct['messages'].push( `staticBearer.attachedRoutes[${index}]: Must start with /` )
+                        }
+                    } )
+                }
+            }
+        }
+
+        // Validate oauth21 configuration
+        if( oauth21 !== undefined && oauth21 !== null ) {
+            if( typeof oauth21 !== 'object' ) {
+                struct['messages'].push( 'oauth21: Must be an object' )
+            } else {
+                // Validate required authType
+                if( oauth21.authType === undefined || oauth21.authType === null ) {
+                    struct['messages'].push( 'oauth21.authType: Missing value' )
+                } else if( typeof oauth21.authType !== 'string' ) {
+                    struct['messages'].push( 'oauth21.authType: Must be a string' )
+                } else {
+                    // For now, only oauth21_scalekit is supported (auth0 deprecated)
+                    if( oauth21.authType !== 'oauth21_scalekit' ) {
+                        struct['messages'].push( `oauth21.authType: Unsupported value "${oauth21.authType}". Only "oauth21_scalekit" is supported` )
+                    }
+                }
+
+                // Validate required attachedRoutes
+                if( oauth21.attachedRoutes === undefined || oauth21.attachedRoutes === null ) {
+                    struct['messages'].push( 'oauth21.attachedRoutes: Missing value' )
+                } else if( !Array.isArray( oauth21.attachedRoutes ) ) {
+                    struct['messages'].push( 'oauth21.attachedRoutes: Must be an array' )
+                } else if( oauth21.attachedRoutes.length === 0 ) {
+                    struct['messages'].push( 'oauth21.attachedRoutes: Cannot be empty array' )
+                } else {
+                    oauth21.attachedRoutes.forEach( ( route, index ) => {
+                        if( typeof route !== 'string' ) {
+                            struct['messages'].push( `oauth21.attachedRoutes[${index}]: Must be a string` )
+                        } else if( !route.startsWith( '/' ) ) {
+                            struct['messages'].push( `oauth21.attachedRoutes[${index}]: Must start with /` )
+                        }
+                    } )
+                }
+
+                // Validate required options for oauth21
+                if( oauth21.options === undefined || oauth21.options === null ) {
+                    struct['messages'].push( 'oauth21.options: Missing value' )
+                } else if( typeof oauth21.options !== 'object' ) {
+                    struct['messages'].push( 'oauth21.options: Must be an object' )
+                } else {
+                    // Validate authType-specific configuration using AuthTypeValidator
+                    if( oauth21.authType && typeof oauth21.authType === 'string' ) {
                         const authTypeValidation = AuthTypeValidator.validateAuthType( {
-                            authType: config.authType,
-                            config
+                            authType: oauth21.authType,
+                            config: oauth21.options
                         } )
 
                         if( !authTypeValidation.status ) {
                             authTypeValidation.messages.forEach( ( message ) => {
-                                struct['messages'].push( `Route "${routePath}": ${message}` )
+                                struct['messages'].push( `oauth21.options: ${message}` )
                             } )
                         }
                     }
-
-                    // Validate common route fields (previously had defaults)
-                    if( config.authFlow !== undefined && typeof config.authFlow !== 'string' ) {
-                        struct['messages'].push( `Route "${routePath}": authFlow must be a string` )
-                    }
-
-                    if( config.requiredScopes !== undefined && !Array.isArray( config.requiredScopes ) ) {
-                        struct['messages'].push( `Route "${routePath}": requiredScopes must be an array` )
-                    }
-
-                    if( config.requiredRoles !== undefined && !Array.isArray( config.requiredRoles ) ) {
-                        struct['messages'].push( `Route "${routePath}": requiredRoles must be an array` )
-                    }
-
                 }
-            } )
+            }
+        }
+
+        // Check for route conflicts (same route in both arrays)
+        if( staticBearer?.attachedRoutes && oauth21?.attachedRoutes ) {
+            const routeConflicts = staticBearer.attachedRoutes
+                .filter( route => oauth21.attachedRoutes.includes( route ) )
+
+            if( routeConflicts.length > 0 ) {
+                struct['messages'].push( `Route conflict: Routes cannot be in both staticBearer and oauth21 attachedRoutes: ${routeConflicts.join( ', ' )}` )
+            }
+        }
+
+        // Validate that at least one auth method is configured OR both are null (unprotected server)
+        const hasStaticBearer = staticBearer !== null && staticBearer !== undefined
+        const hasOAuth21 = oauth21 !== null && oauth21 !== undefined
+
+        if( !hasStaticBearer && !hasOAuth21 ) {
+            // Both null/undefined - server will be unprotected (this is allowed)
+            // No validation error, just log a note in implementation
         }
 
         struct['status'] = struct['messages'].length === 0

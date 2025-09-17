@@ -123,7 +123,7 @@ class OAuth21ScalekitTokenValidator {
 
 
     #initializeJwksClient() {
-        const jwksUrl = this.#config.jwksUrl || `${this.#config.providerUrl}/keys`
+        const jwksUrl = this.#config.jwksUrl
 
         this.#jwksClient = jwksClient( {
             jwksUri: jwksUrl,

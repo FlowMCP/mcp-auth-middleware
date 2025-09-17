@@ -37,14 +37,17 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
 
     describe( 'create', () => {
 
-        test( 'creates middleware successfully with valid config', async () => {
+        test( 'creates middleware successfully with staticBearer config', async () => {
             mockValidation.validationCreate.mockReturnValue( {
                 status: true,
                 messages: []
             } )
 
             const middleware = await McpAuthMiddleware.create( {
-                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                }
             } )
 
             expect( middleware ).toBeDefined()
@@ -52,20 +55,76 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
         } )
 
 
-        test( 'creates middleware successfully with silent parameter', async () => {
+        test( 'creates middleware successfully with oauth21 config', async () => {
             mockValidation.validationCreate.mockReturnValue( {
                 status: true,
                 messages: []
             } )
 
             const middleware = await McpAuthMiddleware.create( {
-                routes: { '/api': { providerUrl: 'https://auth.example.com' } },
+                oauth21: {
+                    authType: 'oauth21_scalekit',
+                    attachedRoutes: [ '/oauth' ],
+                    options: {
+                        providerUrl: 'https://auth.scalekit.com',
+                        mcpId: 'res_test123',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        resource: 'mcp:tools:*',
+                        scope: 'mcp:tools:* mcp:resources:read'
+                    }
+                }
+            } )
+
+            expect( middleware ).toBeDefined()
+            expect( mockValidation.validationCreate ).toHaveBeenCalled()
+        } )
+
+
+        test( 'creates middleware successfully with mixed config and silent parameter', async () => {
+            mockValidation.validationCreate.mockReturnValue( {
+                status: true,
+                messages: []
+            } )
+
+            const middleware = await McpAuthMiddleware.create( {
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                },
+                oauth21: {
+                    authType: 'oauth21_scalekit',
+                    attachedRoutes: [ '/oauth' ],
+                    options: {
+                        providerUrl: 'https://auth.scalekit.com',
+                        mcpId: 'res_test123',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        resource: 'mcp:tools:*',
+                        scope: 'mcp:tools:* mcp:resources:read'
+                    }
+                },
                 silent: true
             } )
 
             expect( middleware ).toBeDefined()
             expect( mockValidation.validationCreate ).toHaveBeenCalledWith( {
-                routes: { '/api': { providerUrl: 'https://auth.example.com' } },
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                },
+                oauth21: {
+                    authType: 'oauth21_scalekit',
+                    attachedRoutes: [ '/oauth' ],
+                    options: {
+                        providerUrl: 'https://auth.scalekit.com',
+                        mcpId: 'res_test123',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        resource: 'mcp:tools:*',
+                        scope: 'mcp:tools:* mcp:resources:read'
+                    }
+                },
                 silent: true,
                 baseUrl: 'http://localhost:3000',
                 forceHttps: false
@@ -80,7 +139,7 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
             } )
 
             await expect( McpAuthMiddleware.create( {
-                routes: { '/api': { invalid: 'config' } }
+                staticBearer: { invalid: 'config' }
             } ) ).rejects.toThrow( 'Validation failed: Invalid configuration, Missing required field' )
         } )
 
@@ -97,7 +156,10 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
                 messages: []
             } )
             middleware = await McpAuthMiddleware.create( {
-                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                }
             } )
         } )
 
@@ -108,12 +170,16 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
                 messages: []
             } )
             mockMcpAuthMiddlewareImpl.getRouteConfig.mockReturnValue( {
-                providerUrl: 'https://auth.example.com'
+                authType: 'staticBearer',
+                tokenSecret: 'test-token-123456'
             } )
 
             const config = middleware.getRouteConfig( { routePath: '/api' } )
 
-            expect( config ).toEqual( { providerUrl: 'https://auth.example.com' } )
+            expect( config ).toEqual( {
+                authType: 'staticBearer',
+                tokenSecret: 'test-token-123456'
+            } )
             expect( mockValidation.validationGetRouteConfig ).toHaveBeenCalledWith( { routePath: '/api' } )
         } )
 
@@ -142,7 +208,18 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
                 messages: []
             } )
             middleware = await McpAuthMiddleware.create( {
-                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
+                oauth21: {
+                    authType: 'oauth21_scalekit',
+                    attachedRoutes: [ '/oauth' ],
+                    options: {
+                        providerUrl: 'https://auth.scalekit.com',
+                        mcpId: 'res_test123',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        resource: 'mcp:tools:*',
+                        scope: 'mcp:tools:* mcp:resources:read'
+                    }
+                }
             } )
         } )
 
@@ -153,13 +230,13 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
                 messages: []
             } )
             mockMcpAuthMiddlewareImpl.getRouteClient.mockReturnValue( {
-                provider: 'auth0'
+                provider: 'scalekit'
             } )
 
-            const client = middleware.getRouteClient( { routePath: '/api' } )
+            const client = middleware.getRouteClient( { routePath: '/oauth' } )
 
-            expect( client ).toEqual( { provider: 'auth0' } )
-            expect( mockValidation.validationGetRouteConfig ).toHaveBeenCalledWith( { routePath: '/api' } )
+            expect( client ).toEqual( { provider: 'scalekit' } )
+            expect( mockValidation.validationGetRouteConfig ).toHaveBeenCalledWith( { routePath: '/oauth' } )
         } )
 
 
@@ -187,7 +264,10 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
             mockMcpAuthMiddlewareImpl.router.mockReturnValue( 'mock-router' )
 
             const middleware = await McpAuthMiddleware.create( {
-                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                }
             } )
 
             const router = middleware.router()
@@ -206,15 +286,30 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
                 status: true,
                 messages: []
             } )
-            mockMcpAuthMiddlewareImpl.getRoutes.mockReturnValue( [ '/api', '/admin' ] )
+            mockMcpAuthMiddlewareImpl.getRoutes.mockReturnValue( [ '/api', '/oauth' ] )
 
             const middleware = await McpAuthMiddleware.create( {
-                routes: { '/api': { providerUrl: 'https://auth.example.com' } }
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                },
+                oauth21: {
+                    authType: 'oauth21_scalekit',
+                    attachedRoutes: [ '/oauth' ],
+                    options: {
+                        providerUrl: 'https://auth.scalekit.com',
+                        mcpId: 'res_test123',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        resource: 'mcp:tools:*',
+                        scope: 'mcp:tools:* mcp:resources:read'
+                    }
+                }
             } )
 
             const routes = middleware.getRoutes()
 
-            expect( routes ).toEqual( [ '/api', '/admin' ] )
+            expect( routes ).toEqual( [ '/api', '/oauth' ] )
             expect( mockMcpAuthMiddlewareImpl.getRoutes ).toHaveBeenCalled()
         } )
 
@@ -223,33 +318,35 @@ describe( 'McpAuthMiddleware - Index Wrapper', () => {
 
     describe( 'Route Management', () => {
 
-        test( 'getRoutes returns configured routes', async () => {
+        test( 'getRoutes returns configured routes from mixed auth types', async () => {
             mockValidation.validationCreate.mockReturnValue( {
                 status: true,
                 messages: []
             } )
-            mockMcpAuthMiddlewareImpl.getRoutes.mockReturnValue( [ '/api' ] )
+            mockMcpAuthMiddlewareImpl.getRoutes.mockReturnValue( [ '/api', '/data', '/oauth' ] )
 
             const middleware = await McpAuthMiddleware.create( {
-                routes: {
-                    '/api': {
-                        authType: 'oauth21_auth0',
-                        providerUrl: 'https://auth.example.com',
-                        clientId: 'test',
-                        clientSecret: 'secret',
-                        scope: 'openid',
-                        audience: 'https://api.example.com',
-                        realm: 'test-realm',
-                        authFlow: 'authorization_code',
-                        requiredScopes: [ 'openid' ],
-                        requiredRoles: []
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api', '/data' ]
+                },
+                oauth21: {
+                    authType: 'oauth21_scalekit',
+                    attachedRoutes: [ '/oauth' ],
+                    options: {
+                        providerUrl: 'https://auth.scalekit.com',
+                        mcpId: 'res_test123',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        resource: 'mcp:tools:*',
+                        scope: 'mcp:tools:* mcp:resources:read'
                     }
                 }
             } )
 
             const routes = middleware.getRoutes()
 
-            expect( routes ).toEqual( [ '/api' ] )
+            expect( routes ).toEqual( [ '/api', '/data', '/oauth' ] )
             expect( mockMcpAuthMiddlewareImpl.getRoutes ).toHaveBeenCalled()
         } )
 

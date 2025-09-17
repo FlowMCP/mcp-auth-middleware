@@ -252,6 +252,7 @@ class LocalTesting {
     static #printStart() {
         console.log( '🚀 Starting OAuth21 ScaleKit Puppeteer Test' )
         console.log( '📋 This test will:' )
+        console.log( '   0. Test unauthorized MCP access (expect 401/403 rejection)' )
         console.log( '   1. Perform OAuth discovery from base URL' )
         console.log( '   2. Register client using discovery results' )
         console.log( '   3. Prepare authorization using real metadata' )

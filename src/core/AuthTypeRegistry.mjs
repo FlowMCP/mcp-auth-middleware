@@ -44,19 +44,6 @@ class AuthTypeRegistry {
 
 
     #initializeAuthTypes() {
-        this.#authTypes.set( 'oauth21_auth0', {
-            name: 'OAuth 2.1 with Auth0',
-            description: 'OAuth 2.1 implementation for Auth0 provider',
-            schemaPath: '../authTypes/oauth21_auth0/OAuth21Auth0Schema.mjs',
-            providerPath: '../authTypes/oauth21_auth0/OAuth21Auth0Provider.mjs',
-            tokenValidatorPath: '../authTypes/oauth21_auth0/OAuth21Auth0TokenValidator.mjs',
-            flowHandlerPath: '../authTypes/oauth21_auth0/OAuth21Auth0FlowHandler.mjs',
-            supportedFlows: [ 'authorization_code', 'client_credentials', 'refresh_token' ],
-            defaultScopes: 'openid profile email',
-            requiredFields: [ 'providerUrl', 'clientId', 'clientSecret', 'scope', 'audience' ],
-            optionalFields: [ 'redirectUri', 'responseType', 'grantType', 'tokenEndpoint', 'userInfoEndpoint' ]
-        } )
-
         this.#authTypes.set( 'oauth21_scalekit', {
             name: 'OAuth 2.1 with ScaleKit',
             description: 'OAuth 2.1 implementation for ScaleKit MCP servers',

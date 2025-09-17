@@ -13,13 +13,13 @@ class StaticBearerProvider {
 
 
     detectProviderType( { config } ) {
-        return !!(config && config.token && typeof config.token === 'string')
+        return !!(config && config.tokenSecret && typeof config.tokenSecret === 'string')
     }
 
 
     normalizeConfiguration( { config } ) {
         const normalizedConfig = {
-            token: config.token.trim(),
+            tokenSecret: config.tokenSecret.trim(),
             authType: 'staticBearer',
             realm: 'static-bearer'
         }
@@ -43,15 +43,15 @@ class StaticBearerProvider {
             return struct
         }
 
-        if( !config.token || typeof config.token !== 'string' ) {
-            struct['messages'].push( 'StaticBearer config missing required field: token (must be string)' )
+        if( !config.tokenSecret || typeof config.tokenSecret !== 'string' ) {
+            struct['messages'].push( 'StaticBearer config missing required field: tokenSecret (must be string)' )
         }
 
-        if( config.token && typeof config.token === 'string' && config.token.trim().toLowerCase().startsWith( 'bearer' ) ) {
+        if( config.tokenSecret && typeof config.tokenSecret === 'string' && config.tokenSecret.trim().toLowerCase().startsWith( 'bearer' ) ) {
             struct['messages'].push( 'StaticBearer token must not start with "Bearer" prefix' )
         }
 
-        if( config.token && typeof config.token === 'string' && config.token.trim().length < 8 ) {
+        if( config.tokenSecret && typeof config.tokenSecret === 'string' && config.tokenSecret.trim().length < 8 ) {
             struct['messages'].push( 'StaticBearer token must be at least 8 characters long' )
         }
 

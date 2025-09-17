@@ -1,59 +1,137 @@
 import cors from 'cors'
 import { DeployAdvanced } from 'flowmcpServers'
 import { McpAuthMiddleware } from '../../src/index.mjs'
-import { config } from './config.mjs'
+import { ConfigManager } from './ConfigManager.mjs'
 
 
-const { routeConfigs, silent, baseUrl, forceHttps } = config
+// Get configuration for different auth types
+const { config: staticConfig, authTypValue: staticAuth } = await ConfigManager.getConfig({
+    authTypKey: 'staticBearer'
+})
 
-const objectOfMcpAuthRoutes = routeConfigs
-    .reduce( ( acc, { routePath, auth, authType } ) => {
-        if( !auth.enabled ) { return acc }
-        delete auth.enabled
-        acc[ routePath ] = { authType, ...auth }
-        return acc
-    }, {} )
+const { config: scalekitConfig, authTypValue: scalekitAuth } = await ConfigManager.getConfig({
+    authTypKey: 'oauth21_scalekit'
+})
 
-const oauthMiddleware = await McpAuthMiddleware
-    .create({ 
-        routes: objectOfMcpAuthRoutes, 
-        silent,
-        baseUrl,
-        forceHttps
-    })
+const { silent, baseUrl, forceHttps } = staticConfig
 
-const objectOfSchemaArrays = await routeConfigs
-    .reduce( async ( promiseAcc, { routePath, schemas } ) => {
-        const acc = await promiseAcc
-        const { arrayOfSchemas } = await schemas()
-        acc[ routePath ] = arrayOfSchemas
-        return acc
-    }, Promise.resolve( {} ) )
+// Create middleware with new API structure
+// Example 1: StaticBearer only
+const staticBearerMiddleware = await McpAuthMiddleware.create({
+    staticBearer: {
+        tokenSecret: staticAuth.token,
+        attachedRoutes: ['/static-route']
+    },
+    silent,
+    baseUrl,
+    forceHttps
+})
 
-const arrayOfRoutes = routeConfigs
-    .map( ( { routePath, protocol, bearerIsPublic } ) => { 
-        return { 
-            routePath, 
-            protocol, 
-            bearerToken: bearerIsPublic === false ? 'required' : null 
-        } 
-    } )
+// Example 2: OAuth21 ScaleKit only
+const scalekitMiddleware = await McpAuthMiddleware.create({
+    oauth21: {
+        authType: 'oauth21_scalekit',
+        attachedRoutes: ['/scalekit-route'],
+        options: {
+            providerUrl: scalekitAuth.providerUrl,
+            mcpId: scalekitAuth.mcpId,
+            clientId: scalekitAuth.clientId,
+            clientSecret: scalekitAuth.clientSecret,
+            resource: scalekitAuth.resource,
+            scope: scalekitAuth.scope
+        }
+    },
+    silent,
+    baseUrl,
+    forceHttps
+})
+
+// Example 3: Mixed auth types (both StaticBearer and OAuth21)
+const mixedMiddleware = await McpAuthMiddleware.create({
+    staticBearer: {
+        tokenSecret: staticAuth.token,
+        attachedRoutes: ['/api', '/tools']
+    },
+    oauth21: {
+        authType: 'oauth21_scalekit',
+        attachedRoutes: ['/oauth', '/secure'],
+        options: {
+            providerUrl: scalekitAuth.providerUrl,
+            mcpId: scalekitAuth.mcpId,
+            clientId: scalekitAuth.clientId,
+            clientSecret: scalekitAuth.clientSecret,
+            resource: scalekitAuth.resource,
+            scope: scalekitAuth.scope
+        }
+    },
+    silent,
+    baseUrl,
+    forceHttps
+})
+
+// Use the mixed middleware for demonstration
+const oauthMiddleware = mixedMiddleware
+
+// Configure FlowMCP schemas for different routes
+const objectOfSchemaArrays = {
+    '/api': await import('../schemas/api-schemas.mjs').then(m => m.arrayOfSchemas).catch(() => []),
+    '/tools': await import('../schemas/tool-schemas.mjs').then(m => m.arrayOfSchemas).catch(() => []),
+    '/oauth': await import('../schemas/oauth-schemas.mjs').then(m => m.arrayOfSchemas).catch(() => []),
+    '/secure': await import('../schemas/secure-schemas.mjs').then(m => m.arrayOfSchemas).catch(() => [])
+}
+
+// Configure routes for FlowMCP
+const arrayOfRoutes = [
+    {
+        routePath: '/api',
+        protocol: '/streamable',
+        bearerToken: 'required' // StaticBearer route
+    },
+    {
+        routePath: '/tools',
+        protocol: '/streamable',
+        bearerToken: 'required' // StaticBearer route
+    },
+    {
+        routePath: '/oauth',
+        protocol: '/streamable',
+        bearerToken: null // OAuth21 route
+    },
+    {
+        routePath: '/secure',
+        protocol: '/streamable',
+        bearerToken: null // OAuth21 route
+    }
+]
 
 const { app, mcps, events, argv, server } = DeployAdvanced
-    .init( { silent } )
+    .init({ silent })
 
 // Enable trust proxy for correct protocol detection behind reverse proxies
-app.set( 'trust proxy', true )
+app.set('trust proxy', true)
 
-// CORS für Inspector-Zugriff
-app.use( cors( {
+// CORS for Inspector access
+app.use(cors({
     origin: '*',
-    methods: [ 'GET', 'POST', 'PUT', 'DELETE', 'OPTIONS' ],
-    allowedHeaders: [ 'Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'mcp-protocol-version' ]
-} ) )
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'mcp-protocol-version']
+}))
 
-app.use( oauthMiddleware.router() )
+// Apply OAuth middleware
+app.use(oauthMiddleware.router())
 
-const { rootUrl, port } = config
+const { port } = staticConfig
+const rootUrl = baseUrl
+
 DeployAdvanced
-    .start( { arrayOfRoutes, objectOfSchemaArrays, envObject: [], rootUrl, port } )
+    .start({ arrayOfRoutes, objectOfSchemaArrays, envObject: [], rootUrl, port })
+
+console.log('\n🎉 Reference Implementation Started!')
+console.log('=====================================')
+console.log(`🌐 Base URL: ${baseUrl}:${port}`)
+console.log(`🔐 Auth Types: StaticBearer + OAuth21 ScaleKit`)
+console.log(`📍 Protected Routes:`)
+console.log(`   📘 StaticBearer: /api, /tools`)
+console.log(`   🔑 OAuth21:     /oauth, /secure`)
+console.log(`📚 Discovery: ${baseUrl}:${port}/.well-known/`)
+console.log('')

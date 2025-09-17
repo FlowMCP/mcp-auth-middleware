@@ -18,7 +18,7 @@ class OAuth21ScalekitFlowHandler {
 
         // Generate endpoints from provider
         const { endpoints } = config
-        this.#endpoints = endpoints || this.#generateDefaultEndpoints()
+        this.#endpoints = endpoints
     }
 
 

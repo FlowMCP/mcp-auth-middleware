@@ -43,10 +43,10 @@ class OAuth21ScalekitProvider {
         const endpoints = {
             // OAuth 2.1 endpoints for ScaleKit (corrected based on discovery)
             authorizationEndpoint: `${providerUrl}/oauth/authorize`,
-            tokenEndpoint: tokenEndpoint || `${providerUrl}/oauth/token`,
+            tokenEndpoint: tokenEndpoint,
             deviceAuthorizationEndpoint: `${providerUrl}/oauth/device/code`,
             jwksUrl: `${providerUrl}/keys`,  // Correct ScaleKit JWKS endpoint
-            userInfoUrl: userInfoEndpoint || `${providerUrl}/userinfo`,
+            userInfoUrl: userInfoEndpoint,
             introspectionUrl: `${providerUrl}/oauth/introspect`,
             discoveryUrl: `${providerUrl}/.well-known/openid-configuration`,
             // ScaleKit does NOT provide a registration endpoint - clients must be pre-registered
@@ -93,26 +93,36 @@ class OAuth21ScalekitProvider {
 
 
     getDiscoveryMetadata( { config } ) {
-        const { providerUrl, mcpId, scope } = config
+        const { providerUrl, mcpId, scope, tokenEndpoint, userInfoEndpoint } = config
 
         // Parse scopes from space-separated string to array
         const scopes = scope ? scope.split( ' ' ) : []
 
         const metadata = {
-            issuer: `${providerUrl}`,  // Correct ScaleKit issuer (base URL)
+            // REQUIRED by RFC 8414
+            issuer: `${providerUrl}`,
+            response_types_supported: [ 'code' ],
+
+            // REQUIRED endpoints (unless specific grant types not supported)
             authorization_endpoint: `${providerUrl}/oauth/authorize`,
             token_endpoint: `${providerUrl}/oauth/token`,
-            userinfo_endpoint: `${providerUrl}/userinfo`,
-            jwks_uri: `${providerUrl}/keys`,  // Correct ScaleKit JWKS endpoint
-            // ScaleKit requires pre-registered clients, but we provide a registration endpoint
-            // that returns the pre-configured credentials for MCP clients
-            registration_endpoint: `${config.baseUrl || 'http://localhost:3001'}/scalekit-route/oauth/register`,
+
+            // Optional but common endpoints
+            jwks_uri: `${providerUrl}/keys`,
+            userinfo_endpoint: userInfoEndpoint || `${providerUrl}/userinfo`,
+            introspection_endpoint: `${providerUrl}/oauth/introspect`,
+            revocation_endpoint: `${providerUrl}/oauth/revoke`,
+
+            // RECOMMENDED by RFC 8414
             scopes_supported: scopes,
-            response_types_supported: [ 'code' ],
-            response_modes_supported: [ 'query', 'form_post' ],
+
+            // Grant type and method support
             grant_types_supported: [ 'authorization_code', 'client_credentials', 'refresh_token' ],
+            response_modes_supported: [ 'query', 'form_post' ],
             code_challenge_methods_supported: [ 'S256' ],
             token_endpoint_auth_methods_supported: [ 'client_secret_basic', 'client_secret_post' ],
+
+            // Token format and claims
             subject_types_supported: [ 'public' ],
             claims_supported: [ 'sub', 'iat', 'exp', 'aud', 'iss', 'scope' ]
         }
@@ -120,7 +130,7 @@ class OAuth21ScalekitProvider {
         if( !this.#silent ) {
             Logger.info( {
                 silent: this.#silent,
-                message: `Generated ScaleKit discovery metadata`
+                message: `Generated ScaleKit discovery metadata with token_endpoint: ${metadata.token_endpoint}`
             } )
         }
 

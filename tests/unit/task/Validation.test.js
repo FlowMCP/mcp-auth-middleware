@@ -5,23 +5,14 @@ describe( 'Validation', () => {
 
     describe( 'validationCreate', () => {
 
-        test( 'returns success for valid authType configuration', () => {
+        test( 'returns success for valid staticBearer configuration', () => {
             const config = {
-                routes: {
-                    '/api': {
-                        authType: 'oauth21_auth0',
-                        providerUrl: 'https://tenant.auth0.com',
-                        clientId: 'test-client-id',
-                        clientSecret: 'test-client-secret',
-                        scope: 'openid profile email api:read api:write',
-                        audience: 'https://api.example.com',
-                        realm: 'api-realm',
-                        authFlow: 'authorization_code',
-                        requiredScopes: ['openid', 'profile', 'email', 'api:read', 'api:write'],
-                        requiredRoles: ['user']
-                    }
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api', '/data' ]
                 },
-                silent: true
+                silent: true,
+                baseUrl: 'http://localhost:3000'
             }
 
             const result = Validation.validationCreate( config )
@@ -31,39 +22,94 @@ describe( 'Validation', () => {
         } )
 
 
-        test( 'validates routes as required field', () => {
-            const result = Validation.validationCreate( { silent: false } )
+        test( 'returns success for valid oauth21 scalekit configuration', () => {
+            const config = {
+                oauth21: {
+                    authType: 'oauth21_scalekit',
+                    attachedRoutes: [ '/oauth' ],
+                    options: {
+                        providerUrl: 'https://auth.scalekit.com',
+                        mcpId: 'res_test123',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        resource: 'mcp:tools:*',
+                        scope: 'mcp:tools:* mcp:resources:read'
+                    }
+                },
+                silent: true,
+                baseUrl: 'http://localhost:3000'
+            }
 
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'routes: Missing value' )
+            const result = Validation.validationCreate( config )
+
+            expect( result.status ).toBe( true )
+            expect( result.messages ).toHaveLength( 0 )
         } )
 
 
-        test( 'validates routes as object', () => {
-            const result = Validation.validationCreate( { 
-                routes: 'not an object',
-                silent: true
-            } )
+        test( 'returns success for mixed staticBearer and oauth21 configuration', () => {
+            const config = {
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                },
+                oauth21: {
+                    authType: 'oauth21_scalekit',
+                    attachedRoutes: [ '/oauth' ],
+                    options: {
+                        providerUrl: 'https://auth.scalekit.com',
+                        mcpId: 'res_test123',
+                        clientId: 'test-client-id',
+                        clientSecret: 'test-client-secret',
+                        resource: 'mcp:tools:*',
+                        scope: 'mcp:tools:* mcp:resources:read'
+                    }
+                },
+                silent: true,
+                baseUrl: 'http://localhost:3000'
+            }
 
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'routes: Must be an object' )
+            const result = Validation.validationCreate( config )
+
+            expect( result.status ).toBe( true )
+            expect( result.messages ).toHaveLength( 0 )
         } )
 
 
-        test( 'validates routes not as array', () => {
-            const result = Validation.validationCreate( { 
-                routes: [ 'not', 'an', 'object' ],
-                silent: true
+        test( 'validates unknown parameters', () => {
+            const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                routes: { '/api': {} }, // Old API parameter
+                silent: true,
+                baseUrl: 'http://localhost:3000'
             } )
 
             expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'routes: Must be an object' )
+            expect( result.messages ).toContain( 'Unknown parameters: routes. Allowed: staticBearer, oauth21, silent, baseUrl, forceHttps' )
+        } )
+
+
+        test( 'validates create parameters object is required', () => {
+            const result = Validation.validationCreate()
+
+            expect( result.status ).toBe( false )
+            expect( result.messages ).toContain( 'Create parameters object is required' )
+        } )
+
+
+        test( 'validates create parameters object is not null', () => {
+            const result = Validation.validationCreate( null )
+
+            expect( result.status ).toBe( false )
+            expect( result.messages ).toContain( 'Create parameters object is required' )
         } )
 
 
         test( 'validates silent field type', () => {
-            const result = Validation.validationCreate( { 
-                routes: { '/api': {} },
+            const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                },
                 silent: 'not a boolean'
             } )
 
@@ -72,71 +118,41 @@ describe( 'Validation', () => {
         } )
 
 
-        test( 'requires authType field in route config', () => {
-            const result = Validation.validationCreate( { 
-                routes: {
-                    '/api': {
-                        providerUrl: 'https://tenant.auth0.com',
-                        clientId: 'test-client-id',
-                        clientSecret: 'test-client-secret',
-                        scope: 'openid profile email',
-                        audience: 'https://api.example.com'
-                    }
-                }
+        test( 'validates baseUrl as string', () => {
+            const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                },
+                baseUrl: 123
             } )
 
             expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "/api": Missing required field: authType' )
+            expect( result.messages ).toContain( 'baseUrl: Must be a string' )
         } )
 
 
-        test( 'validates authType as string', () => {
-            const result = Validation.validationCreate( { 
-                routes: {
-                    '/api': {
-                        authType: 123, // Invalid type
-                        providerUrl: 'https://tenant.auth0.com',
-                        clientId: 'test-client-id',
-                        clientSecret: 'test-client-secret',
-                        scope: 'openid profile email',
-                        audience: 'https://api.example.com'
-                    }
-                }
+        test( 'validates baseUrl not empty', () => {
+            const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                },
+                baseUrl: '   '
             } )
 
             expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "/api": authType must be a string' )
+            expect( result.messages ).toContain( 'baseUrl: Cannot be empty' )
         } )
 
 
-        test( 'validates oauth21_auth0 required fields', () => {
-            const result = Validation.validationCreate( { 
-                routes: {
-                    '/api': {
-                        authType: 'oauth21_auth0',
-                        providerUrl: 'https://tenant.auth0.com'
-                        // Missing: clientId, clientSecret, scope, audience
-                    }
-                }
-            } )
-
-            expect( result.status ).toBe( false )
-            expect( result.messages.some( msg => msg.includes( 'missing required fields' ) ) ).toBe( true )
-        } )
-
-
-        test( 'validates oauth21_auth0 provider URL format', () => {
-            const result = Validation.validationCreate( { 
-                routes: {
-                    '/api': {
-                        authType: 'oauth21_auth0',
-                        providerUrl: 'invalid-url', // Invalid URL format
-                        clientId: 'test-client-id',
-                        clientSecret: 'test-client-secret',
-                        scope: 'openid profile email',
-                        audience: 'https://api.example.com'
-                    }
-                }
+        test( 'validates baseUrl format', () => {
+            const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                },
+                baseUrl: 'invalid-url'
             } )
 
             expect( result.status ).toBe( false )
@@ -144,142 +160,52 @@ describe( 'Validation', () => {
         } )
 
 
-        test( 'validates route path format', () => {
-            const result = Validation.validationCreate( { 
-                routes: {
-                    'api': { // Should start with '/'
-                        authType: 'oauth21_auth0',
-                        providerUrl: 'https://tenant.auth0.com',
-                        clientId: 'test-client-id',
-                        clientSecret: 'test-client-secret',
-                        scope: 'openid profile email',
-                        audience: 'https://api.example.com'
-                    }
-                }
-            } )
-
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "api": Must start with /' )
-        } )
-
-
-        test( 'validates multiple routes', () => {
-            const config = {
-                routes: {
-                    '/api': {
-                        authType: 'oauth21_auth0',
-                        providerUrl: 'https://tenant.auth0.com',
-                        clientId: 'api-client-id',
-                        clientSecret: 'api-client-secret',
-                        scope: 'openid profile email api:read',
-                        audience: 'https://api.example.com',
-                        realm: 'api-realm',
-                        authFlow: 'authorization_code',
-                        requiredScopes: ['openid', 'profile', 'email', 'api:read'],
-                        requiredRoles: ['user']
-                    },
-                    '/admin': {
-                        authType: 'oauth21_auth0',
-                        providerUrl: 'https://admin.auth0.com',
-                        clientId: 'admin-client-id',
-                        clientSecret: 'admin-client-secret',
-                        scope: 'openid profile email admin:full',
-                        audience: 'https://admin.example.com',
-                        realm: 'admin-realm',
-                        authFlow: 'authorization_code',
-                        requiredScopes: ['openid', 'profile', 'email', 'admin:full'],
-                        requiredRoles: ['admin']
-                    }
+        test( 'validates baseUrl protocol', () => {
+            const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
                 },
-                silent: true
-            }
-
-            const result = Validation.validationCreate( config )
-
-            expect( result.status ).toBe( true )
-            expect( result.messages ).toHaveLength( 0 )
-        } )
-
-
-        test( 'validates route configuration objects', () => {
-            const result = Validation.validationCreate( { 
-                routes: {
-                    '/api': 'not an object'
-                }
+                baseUrl: 'ftp://example.com'
             } )
 
             expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'Route "/api": Configuration must be an object' )
+            expect( result.messages ).toContain( 'baseUrl: Must use http:// or https:// protocol' )
         } )
 
-    } )
 
-
-    describe( 'validationGetRouteConfig', () => {
-
-        test( 'validates routePath as required', () => {
-            const result = Validation.validationGetRouteConfig( {} )
+        test( 'validates baseUrl has no path', () => {
+            const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                },
+                baseUrl: 'https://example.com/path'
+            } )
 
             expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'routePath: Missing value' )
+            expect( result.messages ).toContain( 'baseUrl: Must not contain a path (use protocol://host:port format)' )
         } )
 
 
-        test( 'validates routePath as string', () => {
-            const result = Validation.validationGetRouteConfig( { routePath: 123 } )
+        test( 'validates forceHttps as boolean', () => {
+            const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                staticBearer: {
+                    tokenSecret: 'test-token-123456',
+                    attachedRoutes: [ '/api' ]
+                },
+                forceHttps: 'not a boolean'
+            } )
 
             expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'routePath: Must be a string' )
+            expect( result.messages ).toContain( 'forceHttps: Must be a boolean' )
         } )
 
 
-        test( 'validates routePath format', () => {
-            const result = Validation.validationGetRouteConfig( { routePath: 'api' } )
-
-            expect( result.status ).toBe( false )
-            expect( result.messages ).toContain( 'routePath: Must start with /' )
-        } )
-
-
-        test( 'returns success for valid routePath', () => {
-            const result = Validation.validationGetRouteConfig( { routePath: '/api' } )
-
-            expect( result.status ).toBe( true )
-            expect( result.messages ).toHaveLength( 0 )
-        } )
-
-    } )
-
-
-    describe( 'getSupportedAuthTypes', () => {
-
-        test( 'returns supported auth types', () => {
-            const result = Validation.getSupportedAuthTypes()
-
-            expect( result ).toHaveProperty( 'authTypes' )
-            expect( Array.isArray( result.authTypes ) || result.authTypes instanceof Map ).toBe( true )
-        } )
-
-    } )
-
-
-    describe( 'validateAuthTypeConfig', () => {
-
-        test( 'validates oauth21_auth0 configuration', () => {
-            const result = Validation.validateAuthTypeConfig( {
-                authType: 'oauth21_auth0',
-                config: {
-                    authType: 'oauth21_auth0',
-                    providerUrl: 'https://tenant.auth0.com',
-                    clientId: 'test-client-id',
-                    clientSecret: 'test-client-secret',
-                    scope: 'openid profile email',
-                    audience: 'https://api.example.com',
-                    realm: 'test-realm',
-                    authFlow: 'authorization_code',
-                    requiredScopes: ['openid', 'profile', 'email'],
-                    requiredRoles: ['user']
-                }
+        test( 'allows unprotected server with no auth types', () => {
+            const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                silent: true,
+                baseUrl: 'http://localhost:3000'
             } )
 
             expect( result.status ).toBe( true )
@@ -287,18 +213,316 @@ describe( 'Validation', () => {
         } )
 
 
-        test( 'fails for invalid oauth21_auth0 configuration', () => {
-            const result = Validation.validateAuthTypeConfig( {
-                authType: 'oauth21_auth0',
-                config: {
-                    authType: 'oauth21_auth0',
-                    providerUrl: 'https://example.com' // Missing auth0.com domain
-                    // Missing other required fields
-                }
+        describe( 'staticBearer validation', () => {
+
+            test( 'validates staticBearer as object', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    staticBearer: 'not an object'
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'staticBearer: Must be an object' )
             } )
 
-            expect( result.status ).toBe( false )
-            expect( result.messages.length ).toBeGreaterThan( 0 )
+
+            test( 'allows staticBearer to be null for unprotected server', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    staticBearer: null
+                } )
+
+                expect( result.status ).toBe( true )
+                expect( result.messages ).toHaveLength( 0 )
+            } )
+
+
+            test( 'validates staticBearer tokenSecret is required', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    staticBearer: {
+                        attachedRoutes: [ '/api' ]
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'staticBearer.tokenSecret: Missing value' )
+            } )
+
+
+            test( 'validates staticBearer tokenSecret as string', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    staticBearer: {
+                        tokenSecret: 123,
+                        attachedRoutes: [ '/api' ]
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'staticBearer.tokenSecret: Must be a string' )
+            } )
+
+
+            test( 'validates staticBearer tokenSecret not empty', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    staticBearer: {
+                        tokenSecret: '   ',
+                        attachedRoutes: [ '/api' ]
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'staticBearer.tokenSecret: Cannot be empty' )
+            } )
+
+
+            test( 'validates staticBearer attachedRoutes is required', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    staticBearer: {
+                        tokenSecret: 'test-token-123456'
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'staticBearer.attachedRoutes: Missing value' )
+            } )
+
+
+            test( 'validates staticBearer attachedRoutes as array', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    staticBearer: {
+                        tokenSecret: 'test-token-123456',
+                        attachedRoutes: 'not an array'
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'staticBearer.attachedRoutes: Must be an array' )
+            } )
+
+
+            test( 'validates staticBearer attachedRoutes not empty', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    staticBearer: {
+                        tokenSecret: 'test-token-123456',
+                        attachedRoutes: []
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'staticBearer.attachedRoutes: Cannot be empty array' )
+            } )
+
+
+            test( 'validates staticBearer route paths format', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    staticBearer: {
+                        tokenSecret: 'test-token-123456',
+                        attachedRoutes: [ 'invalid-route', '/valid' ]
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'staticBearer.attachedRoutes[0]: Must start with /' )
+            } )
+
+
+
+        } )
+
+
+        describe( 'oauth21 validation', () => {
+
+            test( 'validates oauth21 as object', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    oauth21: 'not an object'
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'oauth21: Must be an object' )
+            } )
+
+
+            test( 'allows oauth21 to be null for unprotected server', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    oauth21: null
+                } )
+
+                expect( result.status ).toBe( true )
+                expect( result.messages ).toHaveLength( 0 )
+            } )
+
+
+            test( 'validates oauth21 authType is required', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    oauth21: {
+                        attachedRoutes: [ '/oauth' ],
+                        options: {
+                            providerUrl: 'https://auth.scalekit.com',
+                            mcpId: 'res_test123',
+                            clientId: 'test-client-id',
+                            clientSecret: 'test-client-secret',
+                            resource: 'mcp:tools:*',
+                            scope: 'mcp:tools:* mcp:resources:read'
+                        }
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'oauth21.authType: Missing value' )
+            } )
+
+
+            test( 'validates oauth21 authType is oauth21_scalekit', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    oauth21: {
+                        authType: 'oauth21_auth0', // Not supported anymore
+                        attachedRoutes: [ '/oauth' ],
+                        options: {
+                            providerUrl: 'https://auth.scalekit.com',
+                            mcpId: 'res_test123',
+                            clientId: 'test-client-id',
+                            clientSecret: 'test-client-secret',
+                            resource: 'mcp:tools:*',
+                            scope: 'mcp:tools:* mcp:resources:read'
+                        }
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'oauth21.authType: Unsupported value "oauth21_auth0". Only "oauth21_scalekit" is supported' )
+            } )
+
+
+            test( 'validates oauth21 scalekit required fields', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    oauth21: {
+                        authType: 'oauth21_scalekit',
+                        attachedRoutes: [ '/oauth' ],
+                        options: {
+                            providerUrl: 'https://auth.scalekit.com'
+                            // Missing: mcpId, clientId, clientSecret, resource, scope
+                        }
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages.some( msg => msg.includes( 'missing required fields' ) ) ).toBe( true )
+            } )
+
+
+            test( 'validates oauth21 providerUrl format', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    oauth21: {
+                        authType: 'oauth21_scalekit',
+                        attachedRoutes: [ '/oauth' ],
+                        options: {
+                            providerUrl: 'invalid-url',
+                            mcpId: 'res_test123',
+                            clientId: 'test-client-id',
+                            clientSecret: 'test-client-secret',
+                            resource: 'mcp:tools:*',
+                            scope: 'mcp:tools:* mcp:resources:read'
+                        }
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages.some( msg => msg.includes( 'valid URL' ) ) ).toBe( true )
+            } )
+
+
+            test( 'validates oauth21 mcpId format', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    oauth21: {
+                        authType: 'oauth21_scalekit',
+                        attachedRoutes: [ '/oauth' ],
+                        options: {
+                            providerUrl: 'https://auth.scalekit.com',
+                            mcpId: 'invalid_format', // Should start with 'res_'
+                            clientId: 'test-client-id',
+                            clientSecret: 'test-client-secret',
+                            resource: 'mcp:tools:*',
+                            scope: 'mcp:tools:* mcp:resources:read'
+                        }
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages.some( msg => msg.includes( "requires mcpId to start with 'res_'" ) ) ).toBe( true )
+            } )
+
+
+            test( 'validates oauth21 attachedRoutes is required', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    oauth21: {
+                        authType: 'oauth21_scalekit',
+                        options: {
+                            providerUrl: 'https://auth.scalekit.com',
+                            mcpId: 'res_test123',
+                            clientId: 'test-client-id',
+                            clientSecret: 'test-client-secret',
+                            resource: 'mcp:tools:*',
+                            scope: 'mcp:tools:* mcp:resources:read'
+                        }
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'oauth21.attachedRoutes: Missing value' )
+            } )
+
+        } )
+
+
+        describe( 'route conflicts validation', () => {
+
+            test( 'detects route conflicts between staticBearer and oauth21', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    staticBearer: {
+                        tokenSecret: 'test-token-123456',
+                        attachedRoutes: [ '/api', '/data' ]
+                    },
+                    oauth21: {
+                        authType: 'oauth21_scalekit',
+                        attachedRoutes: [ '/oauth', '/api' ], // Conflict with /api
+                        options: {
+                            providerUrl: 'https://auth.scalekit.com',
+                            mcpId: 'res_test123',
+                            clientId: 'test-client-id',
+                            clientSecret: 'test-client-secret',
+                            resource: 'mcp:tools:*',
+                            scope: 'mcp:tools:* mcp:resources:read'
+                        }
+                    }
+                } )
+
+                expect( result.status ).toBe( false )
+                expect( result.messages ).toContain( 'Route conflict: Routes cannot be in both staticBearer and oauth21 attachedRoutes: /api' )
+            } )
+
+
+            test( 'allows no route conflicts', () => {
+                const result = Validation.validationCreate( { baseUrl: 'http://localhost:3000',
+                    staticBearer: {
+                        tokenSecret: 'test-token-123456',
+                        attachedRoutes: [ '/api', '/data' ]
+                    },
+                    oauth21: {
+                        authType: 'oauth21_scalekit',
+                        attachedRoutes: [ '/oauth', '/auth' ],
+                        options: {
+                            providerUrl: 'https://auth.scalekit.com',
+                            mcpId: 'res_test123',
+                            clientId: 'test-client-id',
+                            clientSecret: 'test-client-secret',
+                            resource: 'mcp:tools:*',
+                            scope: 'mcp:tools:* mcp:resources:read'
+                        }
+                    }
+                } )
+
+                expect( result.status ).toBe( true )
+                expect( result.messages ).toHaveLength( 0 )
+            } )
+
         } )
 
     } )

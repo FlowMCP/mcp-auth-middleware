@@ -19,12 +19,16 @@ class McpAuthMiddleware {
     #forceHttps
     #baseUrl
     #discoveryHandler
+    #staticBearer
+    #oauth21
 
 
-    constructor( { silent = false, baseUrl = 'http://localhost:3000', forceHttps = false } ) {
+    constructor( { staticBearer = null, oauth21 = null, silent = false, baseUrl = 'http://localhost:3000', forceHttps = false } ) {
         this.#silent = silent
         this.#forceHttps = forceHttps
         this.#baseUrl = this.#resolveBaseUrl( { baseUrl, forceHttps } )
+        this.#staticBearer = staticBearer
+        this.#oauth21 = oauth21
         this.#routeConfigs = new Map()
         this.#routeClients = new Map()
         this.#router = express.Router()
@@ -32,56 +36,101 @@ class McpAuthMiddleware {
     }
 
 
-    static async create( { routes, silent = false, baseUrl = 'http://localhost:3000', forceHttps = false } ) {
-        // Strict input validation
-        const createParams = { routes, silent, baseUrl, forceHttps }
-        const { status, messages } = Validation.validationCreate( createParams )
-        if( !status ) { 
+    static async create( createParamsInput ) {
+        // Extract known parameters with defaults
+        const { staticBearer = null, oauth21 = null, silent = false, baseUrl, forceHttps = false } = createParamsInput || {}
+
+        // Strict input validation using original input to catch unknown parameters
+        const { status, messages } = Validation.validationCreate( createParamsInput )
+        if( !status ) {
             const errorMessage = messages.join( ', ' )
             throw new Error( `Input validation failed: ${errorMessage}` )
         }
-        
-        const middleware = new McpAuthMiddleware( { silent, baseUrl, forceHttps } )
-        
-        // Initialize all routes concurrently
-        await middleware.#initializeRoutes( { routes } )
-        
+
+        const middleware = new McpAuthMiddleware( { staticBearer, oauth21, silent, baseUrl, forceHttps } )
+
+        // Build internal route map from attachedRoutes
+        await middleware.#buildRouteMapFromAttachedRoutes()
+
+        // Initialize auth handlers for configured routes
+        await middleware.#initializeAuthHandlers()
+
         // Setup express router with all routes
         middleware.#setupRouter()
-        
+
         return middleware
     }
 
 
-    async #initializeRoutes( { routes } ) {
-        // Validate that routes is not empty
-        if( Object.keys( routes ).length === 0 ) {
-            throw new Error( 'No routes configured - at least one route is required' )
-        }
-        
-        // Store already validated route configurations (validated in index.mjs)
-        const validatedRoutes = {}
-        Object.entries( routes ).forEach( ( [ routePath, config ] ) => {
-            // Basic route path validation only
-            if( !routePath || !routePath.startsWith( '/' ) ) {
-                throw new Error( `Must start with "/" - Invalid route path: ${routePath}` )
-            }
+    #buildRouteMapFromAttachedRoutes() {
+        // Build internal route configuration map from staticBearer and oauth21 attachedRoutes
 
-            this.#routeConfigs.set( routePath, config )
-            validatedRoutes[routePath] = config
-        } )
+        // Add StaticBearer routes
+        if( this.#staticBearer?.attachedRoutes ) {
+            this.#staticBearer.attachedRoutes.forEach( route => {
+                this.#routeConfigs.set( route, {
+                    authType: 'staticBearer',
+                    tokenSecret: this.#staticBearer.tokenSecret,
+                    allowAnonymous: false,
+                    forceHttps: this.#forceHttps,
+                    _baseUrl: this.#baseUrl
+                } )
+            } )
+        }
+
+        // Add OAuth21 routes
+        if( this.#oauth21?.attachedRoutes ) {
+            this.#oauth21.attachedRoutes.forEach( route => {
+                this.#routeConfigs.set( route, {
+                    authType: this.#oauth21.authType,
+                    ...this.#oauth21.options,
+                    allowAnonymous: false,
+                    forceHttps: this.#forceHttps,
+                    _baseUrl: this.#baseUrl
+                } )
+            } )
+        }
+
+        if( !this.#silent ) {
+            const routeCount = this.#routeConfigs.size
+            if( routeCount === 0 ) {
+                Logger.info( {
+                    silent: this.#silent,
+                    message: '⚠️  NO AUTHENTICATION - Server is unprotected (both staticBearer and oauth21 are null)'
+                } )
+            } else {
+                Logger.info( {
+                    silent: this.#silent,
+                    message: `📊 Built route map: ${routeCount} route${routeCount !== 1 ? 's' : ''} configured`
+                } )
+            }
+        }
+    }
+
+
+    async #initializeAuthHandlers() {
+        // Early return if no routes configured (unprotected server)
+        if( this.#routeConfigs.size === 0 ) {
+            if( !this.#silent ) {
+                Logger.info( {
+                    silent: this.#silent,
+                    message: 'No auth handlers needed - server is unprotected'
+                } )
+            }
+            return
+        }
 
         // Create AuthType-based handlers for all routes
         const authHandlers = {}
-        
+
         for( const [ routePath, config ] of this.#routeConfigs.entries() ) {
             try {
                 // Enhanced config with internal baseUrl for AuthType handlers
-                const enhancedConfig = { 
-                    ...config, 
-                    _baseUrl: this.#baseUrl 
+                const enhancedConfig = {
+                    ...config,
+                    _baseUrl: this.#baseUrl
                 }
-                
+
                 const authHandler = await AuthTypeFactory.createAuthHandler( {
                     authType: config.authType,
                     config: enhancedConfig,
@@ -89,37 +138,35 @@ class McpAuthMiddleware {
                 } )
                 authHandlers[routePath] = authHandler
 
-                // Update both validatedRoutes and routeConfigs with enhanced config that includes generated endpoints
+                // Update both routeConfigs with enhanced config that includes generated endpoints
                 const finalConfig = authHandler.config || enhancedConfig
-                validatedRoutes[routePath] = finalConfig
-                this.#routeConfigs.set(routePath, finalConfig)
+                this.#routeConfigs.set( routePath, finalConfig )
             } catch( error ) {
                 throw new Error( `Failed to create AuthType handler for route ${routePath}: ${error.message}` )
             }
         }
-        
-        // Legacy TokenValidator removed - AuthType handlers provide their own validators
-        
-        // Determine base redirect URI from first route
-        const firstRoute = Array.from( this.#routeConfigs.keys() )[0]
-        const firstConfig = this.#routeConfigs.get( firstRoute )
 
-        // Extract base redirect URI from resourceUri or use configured baseUrl
-        let baseRedirectUri = this.#baseUrl
-        if( firstConfig && firstConfig.resourceUri ) {
-            const url = new URL( firstConfig.resourceUri )
-            baseRedirectUri = `${url.protocol}//${url.host}`
-        }
-        
         // Filter routes to only include OAuth-based AuthTypes for FlowHandler
+        const validatedRoutes = Object.fromEntries( this.#routeConfigs.entries() )
         const oauthRoutes = Object.fromEntries(
             Object.entries( validatedRoutes )
                 .filter( ( [ route, config ] ) => config && config.authType && config.authType.includes( 'oauth' ) )
         )
 
+        // Determine base redirect URI from first route or use configured baseUrl
+        let baseRedirectUri = this.#baseUrl
+        if( oauthRoutes && Object.keys( oauthRoutes ).length > 0 ) {
+            const firstRoute = Object.keys( oauthRoutes )[0]
+            const firstConfig = oauthRoutes[firstRoute]
+            if( firstConfig && firstConfig.resourceUri ) {
+                const url = new URL( firstConfig.resourceUri )
+                baseRedirectUri = `${url.protocol}//${url.host}`
+            }
+        }
+
         let oauthFlowHandler = null
         if( Object.keys( oauthRoutes ).length > 0 ) {
-            oauthFlowHandler = OAuthFlowHandler.createForMultiRealm( { 
+            oauthFlowHandler = OAuthFlowHandler.createForMultiRealm( {
                 routes: oauthRoutes,
                 baseRedirectUri,
                 silent: this.#silent
@@ -132,17 +179,19 @@ class McpAuthMiddleware {
             oauthFlowHandler
         } )
 
-        // Create MCP Discovery Handler for .well-known endpoints
-        this.#discoveryHandler = McpOAuthDiscoveryHandler.create( { 
-            routes: validatedRoutes, 
+        // Create MCP Discovery Handler for .well-known endpoints on root level
+        this.#discoveryHandler = McpOAuthDiscoveryHandler.create( {
+            routes: validatedRoutes,
             silent: this.#silent,
-            baseUrl: this.#baseUrl 
+            baseUrl: this.#baseUrl
         } )
-        
+
         if( !this.#silent ) {
             this.#displayRoutesSummary()
         }
     }
+
+
 
 
 
@@ -218,9 +267,6 @@ class McpAuthMiddleware {
 
     #setupGlobalWellKnown() {
         // Central OAuth Authorization Server metadata (RFC 8414)
-        this.#router.get( '/.well-known/oauth-authorization-server', ( req, res ) => {
-            this.#handleAuthorizationServerMetadata( { req, res } )
-        } )
         
         // Global JWKS endpoint
         this.#router.get( '/.well-known/jwks.json', async ( req, res ) => {
@@ -230,43 +276,17 @@ class McpAuthMiddleware {
 
 
     #setupMcpDiscoveryEndpoints() {
-        if( this.#discoveryHandler ) {
-            // Extract the routes and mount them on our router
-            const routePaths = Object.keys( this.#discoveryHandler.getRoutes() )
-            
-            routePaths.forEach( ( routePath ) => {
-                const authServerPath = `${routePath}/.well-known/oauth-authorization-server`
-                const protectedResourcePath = `${routePath}/.well-known/oauth-protected-resource`
+        // MCP Spec: Discovery endpoints must be on root level (/.well-known/...)
+        // Only OAuth routes need discovery endpoints
+        const hasOAuthRoutes = this.#oauth21 !== null && this.#oauth21 !== undefined
 
-                // Register discovery endpoints BEFORE the protected route middleware
-                // These must be publicly accessible per RFC 8414/9728
-                this.#router.get( authServerPath, async ( req, res ) => {
-                    try {
-                        const { success, metadata, error } = await this.#discoveryHandler.generateAuthorizationServerMetadata( { routePath } )
+        if( hasOAuthRoutes ) {
+            // Root-level Authorization Server Metadata (RFC 8414)
+            this.#router.get( '/.well-known/oauth-authorization-server', async ( req, res ) => {
+                try {
+                    // Generate aggregated metadata for all OAuth routes
+                    const { success, metadata, error } = await this.#generateServerWideAuthorizationMetadata()
 
-                        if( !success ) {
-                            return res.status( 404 ).json( { error } )
-                        }
-
-                        res.set( {
-                            'Content-Type': 'application/json',
-                            'Cache-Control': 'public, max-age=3600',
-                            'Access-Control-Allow-Origin': '*'
-                        } )
-
-                        res.json( metadata )
-                    } catch( handlerError ) {
-                        this.#log( `Error generating authorization server metadata for ${routePath}: ${handlerError.message}` )
-
-                        res.status( 500 ).json( {
-                            error: 'Internal server error generating authorization server metadata'
-                        } )
-                    }
-                } )
-
-                this.#router.get( protectedResourcePath, ( req, res ) => {
-                    const { success, metadata, error } = this.#discoveryHandler.generateProtectedResourceMetadata( { routePath } )
-                    
                     if( !success ) {
                         return res.status( 404 ).json( { error } )
                     }
@@ -276,17 +296,173 @@ class McpAuthMiddleware {
                         'Cache-Control': 'public, max-age=3600',
                         'Access-Control-Allow-Origin': '*'
                     } )
-                    
+
                     res.json( metadata )
-                } )
+                } catch( handlerError ) {
+                    this.#log( `Error generating server-wide authorization metadata: ${handlerError.message}` )
+
+                    res.status( 500 ).json( {
+                        error: 'Internal server error generating authorization server metadata'
+                    } )
+                }
+            } )
+
+            // Root-level Protected Resource Metadata (RFC 9728)
+            this.#router.get( '/.well-known/oauth-protected-resource', ( req, res ) => {
+                try {
+                    const { success, metadata, error } = this.#generateServerWideProtectedResourceMetadata()
+
+                    if( !success ) {
+                        return res.status( 404 ).json( { error } )
+                    }
+
+                    res.set( {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'public, max-age=3600',
+                        'Access-Control-Allow-Origin': '*'
+                    } )
+
+                    res.json( metadata )
+                } catch( handlerError ) {
+                    this.#log( `Error generating server-wide protected resource metadata: ${handlerError.message}` )
+
+                    res.status( 500 ).json( {
+                        error: 'Internal server error generating protected resource metadata'
+                    } )
+                }
             } )
 
             if( !this.#silent ) {
-                Logger.info( { 
-                    silent: this.#silent, 
-                    message: `MCP Discovery endpoints registered for ${routePaths.length} routes` 
+                Logger.info( {
+                    silent: this.#silent,
+                    message: `MCP Discovery endpoints registered on root level (OAuth routes: ${this.#oauth21.attachedRoutes.join( ', ' )})`
                 } )
             }
+        } else if( !this.#silent ) {
+            Logger.info( {
+                silent: this.#silent,
+                message: 'No OAuth routes configured - MCP Discovery endpoints not needed'
+            } )
+        }
+    }
+
+
+    async #generateServerWideAuthorizationMetadata() {
+        // Generate authorization server metadata that covers all OAuth routes on the server
+        if( !this.#oauth21 ) {
+            return {
+                success: false,
+                error: 'No OAuth configuration found'
+            }
+        }
+
+        try {
+            // Use the first OAuth route as a template for metadata generation
+            const firstOAuthRoute = this.#oauth21.attachedRoutes[0]
+            const routeConfig = this.#routeConfigs.get( firstOAuthRoute )
+
+            if( !routeConfig ) {
+                return {
+                    success: false,
+                    error: `OAuth route configuration not found: ${firstOAuthRoute}`
+                }
+            }
+
+            // Create auth handler for metadata generation
+            const authHandler = await AuthTypeFactory.createAuthHandler( {
+                authType: routeConfig.authType,
+                config: routeConfig,
+                silent: this.#silent
+            } )
+
+            // Use provider's discovery metadata generation
+            if( authHandler.provider && typeof authHandler.provider.getDiscoveryMetadata === 'function' ) {
+                const providerResult = authHandler.provider.getDiscoveryMetadata( { config: routeConfig } )
+
+                if( providerResult.success ) {
+                    // Enhance metadata with server-wide information
+                    const enhancedMetadata = {
+                        ...providerResult.metadata,
+                        // Add server-wide scope covering all OAuth routes
+                        protected_resources: this.#oauth21.attachedRoutes.map( route => `${this.#baseUrl}${route}` )
+                    }
+
+                    return {
+                        success: true,
+                        metadata: enhancedMetadata
+                    }
+                }
+            }
+
+            return {
+                success: false,
+                error: `OAuth provider ${routeConfig.authType} does not support discovery metadata generation`
+            }
+        } catch( error ) {
+            return {
+                success: false,
+                error: `Failed to generate authorization server metadata: ${error.message}`
+            }
+        }
+    }
+
+
+    #generateServerWideProtectedResourceMetadata() {
+        // Generate protected resource metadata for all OAuth-protected routes
+        if( !this.#oauth21 ) {
+            return {
+                success: false,
+                error: 'No OAuth configuration found'
+            }
+        }
+
+        const oauthRoutes = this.#oauth21.attachedRoutes
+        const firstRoute = oauthRoutes[0]
+        const routeConfig = this.#routeConfigs.get( firstRoute )
+
+        if( !routeConfig ) {
+            return {
+                success: false,
+                error: `OAuth route configuration not found: ${firstRoute}`
+            }
+        }
+
+        // RFC 9728 Protected Resource Metadata for server-wide protection
+        const metadata = {
+            // Required fields per RFC 9728
+            resource: `${this.#baseUrl}/*`,  // Server-wide resource protection
+            authorization_servers: [
+                this.#baseUrl  // Our server acts as the authorization server endpoint
+            ],
+
+            // Optional but recommended fields
+            jwks_uri: routeConfig.jwksUrl,
+            scopes_supported: routeConfig.requiredScopes || [],
+
+            // OAuth 2.1 security information
+            bearer_methods_supported: [ 'header' ], // RFC 6750 - Bearer token in Authorization header only
+            resource_signing_alg_values_supported: [ 'RS256', 'RS384', 'RS512' ],
+
+            // Server-wide protection information
+            protected_resources: oauthRoutes.map( route => `${this.#baseUrl}${route}` ),
+            auth_type: routeConfig.authType,
+
+            // Links per RFC 9728
+            links: [
+                {
+                    rel: 'authorization_server',
+                    href: `${this.#baseUrl}/.well-known/oauth-authorization-server`
+                },
+                {
+                    rel: 'protected_resources',
+                    href: oauthRoutes.map( route => `${this.#baseUrl}${route}` )
+                }
+            ]
+        }
+
+        return {
+            success: true,
+            metadata
         }
     }
 
@@ -421,7 +597,7 @@ class McpAuthMiddleware {
             authorization_servers: [
                 // For OAuth 2.1 with external providers, point to our local middleware as the authorization server
                 // This allows MCP clients to discover our registration endpoint and OAuth flow
-                config.authType === 'oauth21_auth0' || config.authType === 'oauth21_scalekit'
+                config.authType === 'oauth21_scalekit'
                     ? this.#baseUrl
                     : `${config.providerUrl}/realms/${config.realm}`
             ],
@@ -448,7 +624,7 @@ class McpAuthMiddleware {
             links: [
                 {
                     rel: 'authorization_server',
-                    href: config.authType === 'oauth21_auth0' || config.authType === 'oauth21_scalekit'
+                    href: config.authType === 'oauth21_scalekit'
                         ? config.providerUrl
                         : `${config.providerUrl}/realms/${config.realm}`
                 },
@@ -505,31 +681,6 @@ class McpAuthMiddleware {
     }
 
 
-    #handleAuthorizationServerMetadata( { req, res } ) {
-        try {
-            // Use OAuthFlowHandler to get discovery metadata
-            const sharedHelpers = this.#routeClients.get( 'shared' )
-            const discoveryData = sharedHelpers.oauthFlowHandler.getDiscoveryData()
-
-            // Add registration endpoint for ScaleKit routes (dynamic client registration support)
-            const scalekitRoutes = Array.from( this.#routeConfigs.entries() )
-                .filter( ( [ routePath, config ] ) => config.authType === 'oauth21_scalekit' )
-
-            if( scalekitRoutes.length > 0 ) {
-                const [ routePath ] = scalekitRoutes[0] // Use first ScaleKit route
-                discoveryData.registration_endpoint = `${this.#baseUrl}${routePath}/oauth/register`
-            }
-
-            // Return the discovery metadata as JSON
-            res.json( discoveryData )
-        } catch( error ) {
-            Logger.error( {
-                silent: this.#silent,
-                message: `Authorization server metadata error: ${error.message}`
-            } )
-            res.status( 500 ).json( { error: 'Internal server error' } )
-        }
-    }
 
 
     async #handleGlobalJwks( { req, res } ) {
@@ -554,6 +705,7 @@ class McpAuthMiddleware {
         // Check if route allows anonymous access
         if( config.allowAnonymous && !req.headers.authorization ) {
             req.user = { anonymous: true }
+            req.authType = config.authType
             req.authRealm = config.realm
             req.authRoute = routePath
             return next()
@@ -581,7 +733,7 @@ class McpAuthMiddleware {
         } else {
             Logger.error( {
                 silent: this.#silent,
-                message: `No token validator found for route: ${routePath}. Ensure authType is oauth21_auth0 or staticBearer`
+                message: `No token validator found for route: ${routePath}. Ensure authType is oauth21_scalekit or staticBearer`
             } )
             return this.#sendUnauthorized( { res, routePath, reason: 'configuration_error' } )
         }
@@ -623,6 +775,7 @@ class McpAuthMiddleware {
         
         // Set request context
         req.user = validationResult.decoded
+        req.authType = config.authType
         req.authRealm = config.realm
         req.authRoute = routePath
         req.scopes = validationResult.decoded.scope ? validationResult.decoded.scope.split( ' ' ) : []
@@ -771,28 +924,48 @@ class McpAuthMiddleware {
 
 
     #displayRoutesSummary() {
-        this.#log( '\n🔐 OAuth Middleware Configuration' )
+        this.#log( '\n🔐 MCP OAuth Middleware v1.0' )
         this.#log( '═══════════════════════════════════════════════════════════════════════════════' )
-        
-        const routeCount = this.#routeConfigs.size
-        const realmCount = new Set( Array.from( this.#routeConfigs.values() ).map( c => c.realm ) ).size
-        
-        this.#log( `📊 Summary: ${routeCount} route${routeCount !== 1 ? 's' : ''} configured across ${realmCount} realm${realmCount !== 1 ? 's' : ''}` )
+
+        // Ungeschützt
+        if( !this.#staticBearer && !this.#oauth21 ) {
+            this.#log( '⚠️  NO AUTHENTICATION - Server is unprotected' )
+            this.#log( '   └─ Both staticBearer and oauth21 are null' )
+            this.#log( '' )
+            this.#log( '🔧 Global Configuration:' )
+            this.#log( `   ├─ Base URL:     ${this.#baseUrl}` )
+            this.#log( `   ├─ Force HTTPS:  ${this.#forceHttps}` )
+            this.#log( `   └─ Silent Mode:  ${this.#silent}` )
+            this.#log( '═══════════════════════════════════════════════════════════════════════════════' )
+            this.#log( '' )
+            return
+        }
+
+        // StaticBearer
+        if( this.#staticBearer ) {
+            this.#log( '🔑 StaticBearer Authentication' )
+            this.#log( `   ├─ Token Secret: ${this.#staticBearer.tokenSecret.substring( 0, 8 )}...` )
+            this.#log( `   └─ Protected Routes: ${this.#staticBearer.attachedRoutes.join( ', ' )}` )
+        }
+
+        // OAuth
+        if( this.#oauth21 ) {
+            this.#log( '🔐 OAuth 2.1 Authentication' )
+            this.#log( `   ├─ Provider: ${this.#oauth21.authType}` )
+            this.#log( `   ├─ Protected Routes: ${this.#oauth21.attachedRoutes.join( ', ' )}` )
+            this.#log( `   └─ Discovery: ${this.#baseUrl}/.well-known/` )
+        }
+
         this.#log( '' )
-        
-        // Display global configuration
         this.#log( '🔧 Global Configuration:' )
         this.#log( `   ├─ Base URL:     ${this.#baseUrl}` )
-        this.#log( `   ├─ Force HTTPS:  ${this.#forceHttps !== undefined ? this.#forceHttps : 'auto'}` )
+        this.#log( `   ├─ Force HTTPS:  ${this.#forceHttps}` )
         this.#log( `   └─ Silent Mode:  ${this.#silent}` )
         this.#log( '' )
-        
-        // Display each route configuration
-        let routeIndex = 1
-        this.#routeConfigs.forEach( ( config, routePath ) => {
-            this.#displayRouteDetails( { config, routePath, index: routeIndex++ } )
-        } )
-        
+
+        const routeCount = this.#routeConfigs.size
+        this.#log( `📊 Total Routes Protected: ${routeCount}` )
+
         this.#log( '═══════════════════════════════════════════════════════════════════════════════' )
         this.#log( '' )
     }
@@ -1128,7 +1301,7 @@ class McpAuthMiddleware {
 
     displayStatus() {
         if( this.#silent ) return
-        
+
         this.#displayRoutesSummary()
     }
 
@@ -1159,7 +1332,7 @@ class McpAuthMiddleware {
             response_types: [ 'code' ],
             grant_types: [ 'authorization_code', 'refresh_token' ],
             token_endpoint_auth_method: 'client_secret_post',
-            scope: config.scope || 'openid profile mcp:tools mcp:resources:read mcp:resources:write'
+            scope: config.scope
         }
 
         res.set( {

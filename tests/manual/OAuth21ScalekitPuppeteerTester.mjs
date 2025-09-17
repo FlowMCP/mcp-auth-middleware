@@ -50,6 +50,10 @@ class OAuth21ScalekitPuppeteerTester {
         let testStepReached = 'initialization'
 
         try {
+            // Step 0: Unauthorized Access Test - ensure MCP endpoint rejects without token
+            testStepReached = 'unauthorized_test'
+            const unauthorizedResult = await this.#testUnauthorizedAccess()
+
             // Step 1: Discovery - derive endpoints from baseUrl
             testStepReached = 'discovery'
             const discoveryData = await this.#performDiscovery()
@@ -88,6 +92,7 @@ class OAuth21ScalekitPuppeteerTester {
                 routePath: this.#routePath,
                 clientId: this.#config.auth.clientId,
                 flowResults: {
+                    step0_unauthorizedTest: unauthorizedResult,
                     step1_discovery: discoveryData,
                     step2_registration: registrationResult,
                     step3_authorization: authorizationResult,
@@ -728,6 +733,99 @@ class OAuth21ScalekitPuppeteerTester {
             this.#log( '' )
             return { validationResult }
         }
+    }
+
+
+    async #testUnauthorizedAccess() {
+        this.#log( '🚫 Step 0: Unauthorized Access Test - Expecting MCP endpoint to reject without token' )
+
+        const mcpEndpoint = `${this.#baseUrl}${this.#routePath}`
+        this.#log( `   🎯 MCP Server endpoint: ${mcpEndpoint}` )
+
+        // Test 1: Initialize request without Authorization header
+        const initializeRequest = {
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'initialize',
+            params: {
+                protocolVersion: '2024-11-05',
+                capabilities: {},
+                clientInfo: {
+                    name: 'Unauthorized-Test-Client',
+                    version: '1.0.0'
+                }
+            }
+        }
+
+        this.#log( `   📤 MCP Initialize request (NO TOKEN): ${JSON.stringify( initializeRequest )}` )
+
+        const unauthorizedResult = {
+            success: false,
+            mcpEndpoint,
+            expectedError: 'Unauthorized access should be rejected',
+            actualResult: null,
+            httpStatus: null,
+            httpStatusText: null,
+            errorResponse: null
+        }
+
+        try {
+            const initializeResponse = await fetch( mcpEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                    // Deliberately NO Authorization header
+                },
+                body: JSON.stringify( initializeRequest )
+            } )
+
+            unauthorizedResult.httpStatus = initializeResponse.status
+            unauthorizedResult.httpStatusText = initializeResponse.statusText
+
+            this.#log( `   📥 HTTP Status: ${initializeResponse.status} ${initializeResponse.statusText}` )
+
+            if( initializeResponse.status === 401 || initializeResponse.status === 403 ) {
+                // EXPECTED: Unauthorized access rejected
+                unauthorizedResult.success = true
+                unauthorizedResult.actualResult = 'Properly rejected unauthorized access'
+                this.#log( `   ✅ EXPECTED REJECTION: ${initializeResponse.status} - Unauthorized access properly blocked` )
+
+                try {
+                    const errorBody = await initializeResponse.text()
+                    unauthorizedResult.errorResponse = errorBody
+                    this.#log( `   📄 Error response: ${errorBody}` )
+                } catch( parseError ) {
+                    this.#log( `   📄 Error response: [unable to parse]` )
+                }
+            } else if( initializeResponse.status >= 200 && initializeResponse.status < 300 ) {
+                // UNEXPECTED: Unauthorized access was allowed
+                unauthorizedResult.success = false
+                unauthorizedResult.actualResult = 'Unauthorized access was incorrectly allowed'
+                this.#log( `   ❌ SECURITY ISSUE: ${initializeResponse.status} - Unauthorized access was allowed (should be 401/403)` )
+
+                try {
+                    const responseBody = await initializeResponse.json()
+                    unauthorizedResult.errorResponse = JSON.stringify( responseBody )
+                    this.#log( `   📄 Response body: ${JSON.stringify( responseBody )}` )
+                } catch( parseError ) {
+                    this.#log( `   📄 Response body: [unable to parse]` )
+                }
+            } else {
+                // OTHER HTTP ERROR: Network/server issues
+                unauthorizedResult.success = false
+                unauthorizedResult.actualResult = `Unexpected HTTP error: ${initializeResponse.status}`
+                this.#log( `   ❓ UNEXPECTED ERROR: ${initializeResponse.status} - Network or server error` )
+            }
+
+        } catch( fetchError ) {
+            unauthorizedResult.success = false
+            unauthorizedResult.actualResult = `Network error: ${fetchError.message}`
+            unauthorizedResult.errorResponse = fetchError.message
+            this.#log( `   ❌ NETWORK ERROR: ${fetchError.message}` )
+        }
+
+        this.#log( '' )
+        return unauthorizedResult
     }
 
 

@@ -63,9 +63,6 @@ class ConfigManager {
         const envParams = this.#getServerParams( {
             'path': path.resolve( __dirname, envPath ),
             'requiredServerParams': [
-                'FIRST_ROUTE_AUTH0_DOMAIN',
-                'FIRST_ROUTE_AUTH0_CLIENT_ID',
-                'FIRST_ROUTE_AUTH0_CLIENT_SECRET',
                 'THIRD_ROUTE_BEARER_TOKEN',
                 'SCALEKIT_ENVIRONMENT_URL',
                 'SCALEKIT_CLIENT_ID',
@@ -76,9 +73,6 @@ class ConfigManager {
         } )
 
         const {
-            FIRST_ROUTE_AUTH0_DOMAIN: firstRouteAuth0Domain,
-            FIRST_ROUTE_AUTH0_CLIENT_ID: firstRouteAuth0ClientId,
-            FIRST_ROUTE_AUTH0_CLIENT_SECRET: firstRouteAuth0ClientSecret,
             THIRD_ROUTE_BEARER_TOKEN: thirdRouteBearerToken,
             SCALEKIT_ENVIRONMENT_URL: scalekitEnvironmentUrl,
             SCALEKIT_CLIENT_ID: scalekitClientId,
@@ -92,22 +86,6 @@ class ConfigManager {
                 'enabled': true,
                 'authType': 'staticBearer',
                 'token': thirdRouteBearerToken
-            },
-            'oauth21_auth0': {
-                'enabled': true,
-                'authType': 'oauth21_auth0',
-                'providerName': 'auth0',
-                'providerUrl': `https://${firstRouteAuth0Domain}`,
-                'realm': 'first-route-realm',
-                'clientId': firstRouteAuth0ClientId,
-                'clientSecret': firstRouteAuth0ClientSecret,
-                'scope': 'openid profile email',
-                'audience': `${baseUrl}${port}/${routePath}`,
-                'authFlow': 'authorization_code',
-                'requiredScopes': [ 'openid', 'profile', 'email' ],
-                'requiredRoles': [ 'user' ],
-                'resourceUri': `${baseUrl}:${port}${routePath}`,
-                'forceHttps': true
             },
             'oauth21_scalekit': {
                 'enabled': true,

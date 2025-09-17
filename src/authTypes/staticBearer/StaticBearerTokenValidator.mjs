@@ -7,7 +7,7 @@ class StaticBearerTokenValidator {
 
 
     constructor( { config, silent = false } ) {
-        this.#configuredToken = config.token.trim()
+        this.#configuredToken = config.tokenSecret.trim()
         this.#silent = silent
     }
 
