@@ -51,16 +51,25 @@ class OAuthMiddlewareTester {
     }
 
 
-    static async testOAuthStreamable( { baseUrl, routePath, oauth21Config, browserTimeout = 90000, silent = false, testUnauthorized = true, expectedUnauthorizedStatus = 401 } ) {
-        const { status, messages } = TestValidation.validationTestOAuthStreamable( {
-            baseUrl,
-            routePath,
-            oauth21Config,
-            browserTimeout,
-            silent
-        } )
-        if( !status ) {
-            TestValidation.error( { messages } )
+    static async testOAuthStreamable( { baseUrl, routePath, oauth21Config, browserTimeout = 90000, silent = false, testUnauthorized = true, expectedUnauthorizedStatus = 401, useDynamicRegistration = false } ) {
+        // Skip validation of oauth21Config if using dynamic registration
+        if( !useDynamicRegistration ) {
+            const { status, messages } = TestValidation.validationTestOAuthStreamable( {
+                baseUrl,
+                routePath,
+                oauth21Config,
+                browserTimeout,
+                silent
+            } )
+            if( !status ) {
+                TestValidation.error( { messages } )
+            }
+        } else {
+            // Only validate base parameters for dynamic registration
+            const { status, messages } = TestValidation.validationTestStreamableRoute( { baseUrl, routePath } )
+            if( !status ) {
+                TestValidation.error( { messages } )
+            }
         }
 
         const testResult = await OAuthTester.runTest( {
@@ -70,7 +79,8 @@ class OAuthMiddlewareTester {
             browserTimeout,
             silent,
             testUnauthorized,
-            expectedUnauthorizedStatus
+            expectedUnauthorizedStatus,
+            useDynamicRegistration
         } )
 
         return testResult

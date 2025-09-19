@@ -443,37 +443,33 @@ class McpAuthMiddleware {
 
         const requestBaseUrl = this.#getRequestBaseUrl( { req } )
 
-        // RFC 9728 Protected Resource Metadata for server-wide protection
+        // Generate authorization_servers URL based on auth type
+        let authorizationServers = []
+        let resourceDocumentation = `${requestBaseUrl}/docs`
+        let scopesSupported = []
+
+        if( routeConfig.authType === 'oauth21_scalekit' ) {
+            // ScaleKit: Use providerUrl + resources + mcpId format
+            authorizationServers = [`${routeConfig.providerUrl}/resources/${routeConfig.mcpId}`]
+            scopesSupported = routeConfig.scope ? routeConfig.scope.split( ' ' ) : ['tools:read']
+        } else {
+            // Fallback for other auth types
+            authorizationServers = [routeConfig.providerUrl || requestBaseUrl]
+            scopesSupported = routeConfig.requiredScopes || []
+        }
+
+        // RFC 9728 Protected Resource Metadata - ScaleKit compliant format
         const metadata = {
             // Required fields per RFC 9728
-            resource: `${requestBaseUrl}/*`,  // Server-wide resource protection
-            authorization_servers: [
-                requestBaseUrl  // Our server acts as the authorization server endpoint
-            ],
-
-            // Optional but recommended fields
-            jwks_uri: routeConfig.jwksUrl,
-            scopes_supported: routeConfig.requiredScopes || [],
+            resource: requestBaseUrl,  // Server resource (without /*)
+            authorization_servers: authorizationServers,
 
             // OAuth 2.1 security information
             bearer_methods_supported: [ 'header' ], // RFC 6750 - Bearer token in Authorization header only
-            resource_signing_alg_values_supported: [ 'RS256', 'RS384', 'RS512' ],
+            scopes_supported: scopesSupported,
 
-            // Server-wide protection information
-            protected_resources: oauthRoutes.map( route => `${requestBaseUrl}${route}` ),
-            auth_type: routeConfig.authType,
-
-            // Links per RFC 9728
-            links: [
-                {
-                    rel: 'authorization_server',
-                    href: `${requestBaseUrl}/.well-known/oauth-authorization-server`
-                },
-                {
-                    rel: 'protected_resources',
-                    href: oauthRoutes.map( route => `${requestBaseUrl}${route}` )
-                }
-            ]
+            // Optional but recommended fields
+            resource_documentation: resourceDocumentation
         }
 
         return {
@@ -616,10 +612,10 @@ class McpAuthMiddleware {
                 ? config.resource
                 : resourceUri,
             authorization_servers: [
-                // For OAuth 2.1 with external providers, point to our local middleware as the authorization server
-                // This allows MCP clients to discover our registration endpoint and OAuth flow
+                // For OAuth 2.1 with external providers, point to the correct ScaleKit authorization server
+                // This allows MCP clients to discover the proper OAuth provider
                 config.authType === 'oauth21_scalekit'
-                    ? requestBaseUrl
+                    ? `${config.providerUrl}/resources/${config.mcpId}`
                     : `${config.providerUrl}/realms/${config.realm}`
             ],
             

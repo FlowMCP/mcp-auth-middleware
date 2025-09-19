@@ -1,6 +1,6 @@
 {
     "name": "mcp-auth-middleware",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "description": "OAuth 2.1 authentication middleware for MCP servers with Auth0 and static Bearer token support",
     "main": "./src/index.mjs",
     "type": "module",
@@ -20,6 +20,7 @@
         "test:remote:free": "node tests/manual/3-remote-test.mjs --routeType=free-route",
         "test:remote:bearer": "node tests/manual/3-remote-test.mjs --routeType=static-bearer",
         "test:remote:oauth": "node tests/manual/3-remote-test.mjs --routeType=oauth",
+        "test:remote:oauth:dynamic": "node tests/manual/3-remote-test.mjs --routeType=oauth --dynamic",
         "start:mcp": "node tests/manual/0-reference-implementation-mcp.mjs",
         "start:flowmcp": "node tests/manual/1-reference-implementation-flowmcp.mjs",
         "inspector": "mcp-inspector"

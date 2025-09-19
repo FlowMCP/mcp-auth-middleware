@@ -6,13 +6,20 @@ import { DiagnosticAnalyzer } from '../helpers/DiagnosticAnalyzer.mjs'
 
 
 class OAuthTester {
-    static async runTest( { baseUrl, routePath, oauth21Config, browserTimeout = 90000, silent = false, testUnauthorized = true, expectedUnauthorizedStatus = 401 } ) {
+    static async runTest( { baseUrl, routePath, oauth21Config, browserTimeout = 90000, silent = false, testUnauthorized = true, expectedUnauthorizedStatus = 401, useDynamicRegistration = false } ) {
         console.log( '\n🔍 Starting OAuth21 ScaleKit Test...' )
         console.log( '═'.repeat( 60 ) )
         console.log( `   Endpoint: ${baseUrl}${routePath}` )
         console.log( `   Method: OAuth21 ScaleKit Authentication` )
-        console.log( `   Provider: ${oauth21Config.providerUrl}` )
-        console.log( `   Client ID: ${oauth21Config.clientId}` )
+
+        // Handle dynamic registration mode
+        if( useDynamicRegistration ) {
+            console.log( `   Mode: Dynamic Client Registration (DCR)` )
+            console.log( `   Provider: Will be discovered from target` )
+        } else {
+            console.log( `   Provider: ${oauth21Config.providerUrl}` )
+            console.log( `   Client ID: ${oauth21Config.clientId}` )
+        }
         console.log( '═'.repeat( 60 ) )
 
         const testResult = {
@@ -22,11 +29,12 @@ class OAuthTester {
             configuration: {
                 baseUrl,
                 routePath,
-                oauth21Config: {
+                oauth21Config: useDynamicRegistration ? { mode: 'dynamic' } : {
                     ...oauth21Config,
                     clientSecret: `${oauth21Config.clientSecret.substring( 0, 8 )}...`
                 },
-                browserTimeout
+                browserTimeout,
+                useDynamicRegistration
             },
             naiveTest: null,
             authTest: null,
@@ -92,12 +100,27 @@ class OAuthTester {
             }
 
             console.log( '\n🔍 Starting OAuth21 Flow...' )
+
+            // If using dynamic registration, first discover provider from target
+            if( useDynamicRegistration ) {
+                console.log( '🔎 Step 0: Provider Discovery from Target...' )
+                oauth21Config = await this.#discoverProviderFromUrl( { baseUrl, routePath, requestChain } )
+                console.log( `   ✅ Discovered provider: ${oauth21Config.providerUrl}` )
+                testResult.oauthFlow.providerDiscovery = oauth21Config
+            }
+
             console.log( '🌐 Step 1: OAuth Discovery...' )
             const discoveryData = await this.#performDiscovery( { baseUrl, oauth21Config, requestChain } )
             testResult.oauthFlow.discovery = discoveryData
 
             console.log( '📝 Step 2: Client Registration...' )
-            const registrationResult = await this.#performRegistration( { discoveryData, oauth21Config, baseUrl, requestChain } )
+            const registrationResult = await this.#performRegistration( {
+                discoveryData,
+                oauth21Config,
+                baseUrl,
+                requestChain,
+                useDynamicRegistration
+            } )
             testResult.oauthFlow.registration = registrationResult
 
             console.log( '🔐 Step 3: Authorization Preparation...' )
@@ -254,6 +277,129 @@ class OAuthTester {
     }
 
 
+    static async #discoverProviderFromUrl( { baseUrl, routePath, requestChain } ) {
+        console.log( `🔍 Attempting to discover OAuth provider from ${baseUrl}${routePath}` )
+
+        try {
+            // First try to get protected resource metadata
+            const resourceMetadataUrl = `${baseUrl}/.well-known/oauth-protected-resource${routePath}`
+            console.log( `📋 Checking resource metadata at: ${resourceMetadataUrl}` )
+
+            const metadataResponse = await StreamableTransport.makeRequest( {
+                baseUrl,
+                routePath: `/.well-known/oauth-protected-resource${routePath}`,
+                method: 'GET',
+                timeout: 30000
+            } )
+
+            if( metadataResponse.success && metadataResponse.body ) {
+                const metadata = metadataResponse.body
+                console.log( `✅ Found resource metadata` )
+
+                requestChain.push( {
+                    step: 'provider_discovery_metadata',
+                    request: metadataResponse.requestDetails,
+                    response: {
+                        status: metadataResponse.status,
+                        statusText: metadataResponse.statusText,
+                        headers: metadataResponse.headers,
+                        body: metadata
+                    }
+                } )
+
+                // Extract authorization servers
+                const authServers = metadata.authorization_servers || []
+                if( authServers.length > 0 ) {
+                    const providerUrl = authServers[0]
+                    console.log( `   Found authorization server: ${providerUrl}` )
+
+                    // Extract resource and scope information
+                    const resource = metadata.resource || `${baseUrl}${routePath}`
+                    const scope = metadata.scopes_supported ?
+                        metadata.scopes_supported.join( ' ' ) :
+                        'mcp:tools:* mcp:resources:read'
+
+                    return {
+                        providerUrl: providerUrl.replace( /\/resources\/.*$/, '' ), // Extract base URL
+                        resource,
+                        scope,
+                        organizationId: 'dynamic', // Will be replaced by DCR
+                        clientId: null, // Will be set by DCR
+                        clientSecret: null // Will be set by DCR
+                    }
+                }
+            }
+        } catch( error ) {
+            console.log( `   ⚠️  Resource metadata not found, trying unauthorized request...` )
+        }
+
+        // Fallback: Make unauthorized request and parse WWW-Authenticate header
+        const unauthorizedResponse = await StreamableTransport.makeRequest( {
+            baseUrl,
+            routePath,
+            method: 'GET',
+            timeout: 30000
+        } )
+
+        requestChain.push( {
+            step: 'provider_discovery_401',
+            request: unauthorizedResponse.requestDetails,
+            response: {
+                status: unauthorizedResponse.status,
+                statusText: unauthorizedResponse.statusText,
+                headers: unauthorizedResponse.headers,
+                body: unauthorizedResponse.body
+            }
+        } )
+
+        if( unauthorizedResponse.status === 401 ) {
+            const wwwAuth = unauthorizedResponse.headers['www-authenticate']
+            if( wwwAuth ) {
+                console.log( `   Parsing WWW-Authenticate header: ${wwwAuth}` )
+
+                // Parse Bearer realm and other parameters
+                const realmMatch = wwwAuth.match( /realm="([^"]+)"/ )
+                const resourceMatch = wwwAuth.match( /resource="([^"]+)"/ )
+
+                if( realmMatch ) {
+                    const realm = realmMatch[1]
+                    console.log( `   Found realm: ${realm}` )
+
+                    // If realm is a URL, use it as provider
+                    if( realm.startsWith( 'http' ) ) {
+                        return {
+                            providerUrl: realm.replace( /\/resources\/.*$/, '' ),
+                            resource: resourceMatch ? resourceMatch[1] : `${baseUrl}${routePath}`,
+                            scope: 'mcp:tools:* mcp:resources:read',
+                            organizationId: 'dynamic',
+                            clientId: null,
+                            clientSecret: null
+                        }
+                    }
+                }
+            }
+        }
+
+        // Smart default based on the target domain
+        let defaultProvider = 'https://auth.scalekit.com'
+        if( baseUrl.includes( 'flowmcp.org' ) ) {
+            defaultProvider = 'https://auth.flowmcp.org'
+            console.log( `   ⚠️  Could not discover provider, defaulting to FlowMCP Auth` )
+        } else {
+            console.log( `   ⚠️  Could not discover provider, defaulting to ScaleKit` )
+        }
+
+        return {
+            providerUrl: defaultProvider,
+            resource: `${baseUrl}${routePath}`,
+            scope: 'mcp:tools:* mcp:resources:read',
+            organizationId: 'dynamic',
+            clientId: null,
+            clientSecret: null
+        }
+    }
+
+
     static async #performDiscovery( { baseUrl, oauth21Config, requestChain } ) {
         const discoveryUrl = `${oauth21Config.providerUrl}/.well-known/openid-configuration`
 
@@ -300,11 +446,24 @@ class OAuthTester {
     }
 
 
-    static async #performRegistration( { discoveryData, oauth21Config, baseUrl, requestChain } ) {
+    static async #performRegistration( { discoveryData, oauth21Config, baseUrl, requestChain, useDynamicRegistration = false } ) {
         const registrationUrl = discoveryData.endpoints.registration
 
+        // For dynamic registration, check if provider supports it
+        if( useDynamicRegistration ) {
+            if( !registrationUrl ) {
+                console.log( '❌ Dynamic Client Registration requested but provider does not support it!' )
+                console.log( '   No registration endpoint found in discovery metadata' )
+                console.log( '   Neither ScaleKit nor FlowMCP currently expose DCR endpoints' )
+                console.log( '   📋 Note: DCR is supported by these providers but endpoints are not publicly available' )
+                console.log( '   💡 Workaround: Use pre-configured credentials from .auth.env' )
+                throw new Error( 'Provider does not expose Dynamic Client Registration endpoint. Please use pre-configured credentials or contact provider.' )
+            }
+            console.log( '🚀 Using Dynamic Client Registration (DCR)' )
+            console.log( `📝 Registration endpoint: ${registrationUrl}` )
+        }
         // Check if provider supports dynamic client registration
-        if( !registrationUrl ) {
+        else if( !registrationUrl ) {
             console.log( '🔧 No registration endpoint found - using pre-configured client credentials' )
             console.log( `🔑 Client ID: ${oauth21Config.clientId}` )
             console.log( `🔐 Client Secret: ${oauth21Config.clientSecret ? '[CONFIGURED]' : '[MISSING]'}` )

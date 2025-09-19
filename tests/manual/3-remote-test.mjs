@@ -11,13 +11,16 @@ class RemoteTestRunner {
         }
         const routeType = routeTypeArg.split( '=' )[1]
 
+        // Check for --dynamic flag
+        const useDynamic = argv.includes( '--dynamic' ) || argv.includes( '--dcr' )
+
         // Extract URL (last parameter)
         const url = argv[argv.length - 1]
         if( !url || url.startsWith( '--' ) ) {
             throw new Error( 'Missing URL parameter (must be last argument)' )
         }
 
-        return { routeType, url }
+        return { routeType, url, useDynamic }
     }
 
 
@@ -42,24 +45,29 @@ class RemoteTestRunner {
     }
 
 
-    static displayTestInfo( { routeType, baseUrl, routePath, originalUrl } ) {
+    static displayTestInfo( { routeType, baseUrl, routePath, originalUrl, useDynamic } ) {
         console.log( '🔍 Remote Test Configuration:' )
         console.log( '═'.repeat( 50 ) )
         console.log( `   Route Type:  ${routeType}` )
         console.log( `   Original URL: ${originalUrl}` )
         console.log( `   Base URL:    ${baseUrl}` )
         console.log( `   Route Path:  ${routePath}` )
+        if( useDynamic && routeType === 'oauth' ) {
+            console.log( `   DCR Mode:    ✅ Dynamic Client Registration` )
+        }
         console.log( '═'.repeat( 50 ) )
         console.log( '' )
     }
 
 
-    static async runTest( { routeType, baseUrl, routePath } ) {
-        const config = new ConfigExamples( {
-            envPath: './../../.auth.env',
-            routePath,
-            silent: false
-        } )
+    static async runTest( { routeType, baseUrl, routePath, useDynamic } ) {
+        // Only load config if not using dynamic registration
+        const config = ( !useDynamic && routeType !== 'free-route' ) ?
+            new ConfigExamples( {
+                envPath: './../../.auth.env',
+                routePath,
+                silent: false
+            } ) : null
 
         switch( routeType ) {
             case 'free-route':
@@ -73,6 +81,9 @@ class RemoteTestRunner {
 
             case 'static-bearer':
                 console.log( '🔐 Testing Static Bearer Token authentication...' )
+                if( !config ) {
+                    throw new Error( 'Static Bearer requires .auth.env configuration' )
+                }
                 const { bearerSecretToken } = config.getState()
                 return await OAuthMiddlewareTester.testBearerStreamable( {
                     baseUrl,
@@ -84,17 +95,35 @@ class RemoteTestRunner {
                 } )
 
             case 'oauth':
-                console.log( '🔑 Testing OAuth 2.1 ScaleKit authentication...' )
-                const { oauth21Config } = config.getMcpAuthScaleKitConfig()
-                return await OAuthMiddlewareTester.testOAuthStreamable( {
-                    baseUrl,
-                    routePath,
-                    oauth21Config,
-                    browserTimeout: 90000,
-                    silent: false,
-                    testUnauthorized: true,
-                    expectedUnauthorizedStatus: 401
-                } )
+                if( useDynamic ) {
+                    console.log( '🔑 Testing OAuth 2.1 with Dynamic Client Registration...' )
+                    console.log( '   🚀 No pre-configured credentials needed!' )
+                    return await OAuthMiddlewareTester.testOAuthStreamable( {
+                        baseUrl,
+                        routePath,
+                        oauth21Config: null, // Signal to use DCR
+                        browserTimeout: 90000,
+                        silent: false,
+                        testUnauthorized: true,
+                        expectedUnauthorizedStatus: 401,
+                        useDynamicRegistration: true
+                    } )
+                } else {
+                    console.log( '🔑 Testing OAuth 2.1 ScaleKit authentication...' )
+                    if( !config ) {
+                        throw new Error( 'OAuth requires configuration. Use --dynamic for DCR or provide .auth.env' )
+                    }
+                    const { oauth21Config } = config.getMcpAuthScaleKitConfig()
+                    return await OAuthMiddlewareTester.testOAuthStreamable( {
+                        baseUrl,
+                        routePath,
+                        oauth21Config,
+                        browserTimeout: 90000,
+                        silent: false,
+                        testUnauthorized: true,
+                        expectedUnauthorizedStatus: 401
+                    } )
+                }
 
             default:
                 throw new Error( `Unsupported routeType: ${routeType}` )
@@ -105,17 +134,17 @@ class RemoteTestRunner {
     static async main() {
         try {
             // Parse command line arguments
-            const { routeType, url } = this.parseArguments( { argv: process.argv } )
+            const { routeType, url, useDynamic } = this.parseArguments( { argv: process.argv } )
             this.validateRouteType( { routeType } )
 
             // Parse and validate URL
             const { baseUrl, routePath } = this.parseUrl( { url } )
 
             // Display test configuration
-            this.displayTestInfo( { routeType, baseUrl, routePath, originalUrl: url } )
+            this.displayTestInfo( { routeType, baseUrl, routePath, originalUrl: url, useDynamic } )
 
             // Run the test
-            const result = await this.runTest( { routeType, baseUrl, routePath } )
+            const result = await this.runTest( { routeType, baseUrl, routePath, useDynamic } )
 
             if( result.success ) {
                 console.log( '\n✅ Remote test completed successfully!' )
