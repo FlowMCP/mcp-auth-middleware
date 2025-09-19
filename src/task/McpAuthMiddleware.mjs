@@ -21,6 +21,7 @@ class McpAuthMiddleware {
     #discoveryHandler
     #staticBearer
     #oauth21
+    #globalCallbackRegistered
 
 
     constructor( { staticBearer = null, oauth21 = null, silent = false, baseUrl = 'http://localhost:3000', forceHttps = false } ) {
@@ -33,6 +34,7 @@ class McpAuthMiddleware {
         this.#routeClients = new Map()
         this.#router = express.Router()
         this.#discoveryHandler = null
+        this.#globalCallbackRegistered = false
     }
 
 
@@ -241,13 +243,16 @@ class McpAuthMiddleware {
                 } )
             }
 
-            // OAuth callback endpoint per route (GET and POST for different flows)
-            this.#router.get( `${routePath}/auth/callback`, httpsMiddleware, async ( req, res ) => {
-                await this.#handleCallback( { req, res, routePath } )
-            } )
-            this.#router.post( `${routePath}/auth/callback`, httpsMiddleware, async ( req, res ) => {
-                await this.#handleCallback( { req, res, routePath } )
-            } )
+            // Global OAuth callback endpoint (shared for all OAuth routes per MCP specification)
+            if( !this.#globalCallbackRegistered ) {
+                this.#router.get( `/auth/callback`, httpsMiddleware, async ( req, res ) => {
+                    await this.#handleCallback( { req, res } )
+                } )
+                this.#router.post( `/auth/callback`, httpsMiddleware, async ( req, res ) => {
+                    await this.#handleCallback( { req, res } )
+                } )
+                this.#globalCallbackRegistered = true
+            }
             
             // Route-specific well-known endpoints (RFC 9728)
             this.#router.get( `/.well-known/oauth-protected-resource${routePath}`, ( req, res ) => {
@@ -515,25 +520,29 @@ class McpAuthMiddleware {
     }
 
 
-    async #handleCallback( { req, res, routePath } ) {
+    async #handleCallback( { req, res } ) {
         const { code, state, error, error_description } = req.query
         const sharedHelpers = this.#routeClients.get( 'shared' )
         
         // Handle OAuth error responses (user denied, etc.)
         if( error ) {
+            // For global callback, we cannot determine specific route from error
+            // Log to first attached route for now
+            const firstAttachedRoute = this.#oauth21?.attachedRoutes?.[0] || '/unknown'
+
             this.#logRouteAccess( {
-                routePath,
+                routePath: firstAttachedRoute,
                 method: 'CALLBACK',
                 status: 'error',
                 user: { sub: 'unauthenticated' },
                 error: error,
                 error_description: error_description
             } )
-            
+
             return res.status( 400 ).json( {
                 error: error,
                 error_description: error_description || 'Authorization failed',
-                login_url: this.#generateURL( { req, routePath, path: `${routePath}/auth/login` } )
+                login_url: this.#generateURL( { req, routePath: firstAttachedRoute, path: `${firstAttachedRoute}/auth/login` } )
             } )
         }
         
@@ -674,7 +683,7 @@ class McpAuthMiddleware {
             authFlow: config.authFlow,
             endpoints: {
                 login: `${baseUrl}${routePath}/auth/login`,
-                callback: `${baseUrl}${routePath}/auth/callback`,
+                callback: `${baseUrl}/auth/callback`,
                 protected_resource_metadata: `${baseUrl}/.well-known/oauth-protected-resource${routePath}`
             },
             scopes: {
@@ -1025,13 +1034,13 @@ class McpAuthMiddleware {
             // Display OAuth endpoints
             this.#log( `   ├─ Endpoints:` )
             this.#log( `   │  ├─ Login:     ${baseUrl}${routePath}/auth/login` )
-            this.#log( `   │  ├─ Callback:  ${baseUrl}${routePath}/auth/callback` )
+            this.#log( `   │  ├─ Callback:  ${baseUrl}/auth/callback` )
             this.#log( `   │  ├─ Discovery: ${baseUrl}${routePath}/discovery` )
             this.#log( `   │  └─ Metadata:  ${baseUrl}/.well-known/oauth-protected-resource${routePath}` )
             this.#log( `   └─ Auth0 Setup:` )
             this.#log( `      ├─ Domain:                   ${config.providerUrl}` )
             this.#log( `      ├─ Client ID:                ${config.clientId}` )
-            this.#log( `      ├─ Allowed Callback URLs:    ${baseUrl}${routePath}/auth/callback` )
+            this.#log( `      ├─ Allowed Callback URLs:    ${baseUrl}/auth/callback` )
             this.#log( `      └─ Allowed Web Origins:      ${baseUrl}${routePath}` )
         } else {
             // StaticBearer or other non-OAuth authentication
@@ -1347,7 +1356,7 @@ class McpAuthMiddleware {
             client_secret: config.clientSecret,
             client_id_issued_at: Math.floor( Date.now() / 1000 ),
             // Standard DCR response fields
-            redirect_uris: [ `${this.#getRequestBaseUrl( { req } )}${routePath}/auth/callback` ],
+            redirect_uris: [ `${this.#getRequestBaseUrl( { req } )}/auth/callback` ],
             response_types: [ 'code' ],
             grant_types: [ 'authorization_code', 'refresh_token' ],
             token_endpoint_auth_method: 'client_secret_post',

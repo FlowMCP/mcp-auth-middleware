@@ -2,34 +2,40 @@
 
 ## Architecture Overview
 
-The OAuth MCP Middleware is a **multi-realm OAuth 2.1 authentication middleware** specifically designed for Model Context Protocol (MCP) servers. It provides enterprise-grade security through Keycloak integration while maintaining RFC compliance and OAuth 2.1 security standards.
+The OAuth MCP Middleware is a **OAuth 2.1 authentication middleware** specifically designed for Model Context Protocol (MCP) servers. It provides enterprise-grade security through ScaleKit integration while maintaining RFC compliance and OAuth 2.1 security standards.
 
 ### Core Design Principles
 
-1. **Multi-Realm Architecture**: Different routes can authenticate against different Keycloak realms
+1. **Global OAuth Architecture**: Single OAuth callback per server following MCP specification
 2. **RFC Compliance**: Strict adherence to OAuth 2.0/2.1 specifications
 3. **Security First**: PKCE mandatory, Bearer-only tokens, HTTPS enforcement
-4. **MCP Optimized**: Built for HTTP+SSE transport used by remote MCP servers
+4. **MCP Optimized**: Built for HTTP+SSE transport with MCP session management
 
 ## Capabilities & Limitations
 
 ### What This Module DOES
 
-✅ **Multi-Realm OAuth Protection**
-- Route-to-realm mapping for different security contexts
-- Per-route scope requirements
-- Automatic OAuth endpoint generation per realm
+✅ **Global OAuth Protection**
+- Single OAuth callback per server (MCP spec compliant)
+- Per-route protection with attached routes
+- Automatic OAuth endpoint generation
 
 ✅ **RFC-Compliant Discovery**
 - OAuth 2.0 Authorization Server Metadata (RFC 8414)
 - Protected Resource Metadata (RFC 9728)
 - Resource Indicators (RFC 8707)
-- Aggregated JWKS from all realms
+- Root-level discovery endpoints
+
+✅ **MCP Session Management**
+- Streamable HTTP transport support
+- Session ID extraction and management
+- Tool execution with session binding
+- Multi-request MCP flows
 
 ✅ **Security Features**
 - PKCE (S256) for all authorization flows
 - Bearer token validation (header-only)
-- Automatic token introspection
+- JWT audience validation (client_id binding)
 - HTTPS enforcement in production
 
 ✅ **Express Integration**
@@ -53,7 +59,67 @@ The OAuth MCP Middleware is a **multi-realm OAuth 2.1 authentication middleware*
 ❌ **Token Management**
 - No token refresh handling (client responsibility)
 - No token storage/persistence
-- No session management
+- OAuth token validation only (MCP session IDs are supported)
+
+## MCP Session Management
+
+### Session Flow Architecture
+
+The middleware supports the MCP Streamable HTTP protocol with session management:
+
+1. **Initialize Request**: Client sends MCP `initialize` method
+2. **Session Creation**: Server responds with `Mcp-Session-Id` header
+3. **Subsequent Requests**: Client includes session ID in `Mcp-Session-Id` header
+4. **Tool Execution**: Session-bound tool calls with OAuth context
+
+### Session ID Handling
+
+```javascript
+// 1. MCP Initialize (creates session)
+POST /protected-route
+Authorization: Bearer jwt_token
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {},
+    "clientInfo": {"name": "client", "version": "1.0.0"}
+  }
+}
+
+// Response includes session ID
+HTTP/1.1 200 OK
+Mcp-Session-Id: session_12345
+Content-Type: text/event-stream
+
+event: message
+data: {"result": {...}, "jsonrpc": "2.0", "id": 1}
+
+// 2. Subsequent requests use session ID
+POST /protected-route
+Authorization: Bearer jwt_token
+Mcp-Session-Id: session_12345
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/list",
+  "params": {}
+}
+```
+
+### Tool Testing Integration
+
+The middleware supports automatic tool testing as part of the OAuth flow:
+
+- **tools/list**: Enumerate available tools
+- **tools/call**: Execute tools with session binding
+- **Result verification**: Validate tool responses
 
 ## RFC Specifications
 

@@ -40,10 +40,11 @@ This guide provides AI agents with essential information for working with the OA
 
 ### ⚠️ Critical Rules
 1. **Single Entry Point**: All imports must go through `src/index.mjs`
-2. **AuthType Required**: All routes must specify authType (oauth21_auth0, oauth21_scalekit, or staticBearer)
+2. **AuthType Required**: All routes must specify authType (oauth21_scalekit, or staticBearer)
 3. **Validation Required**: All public methods must validate inputs
 4. **Transport Limitation**: HTTP+SSE only, no stdio support
 5. **OAuth 2.1 Only**: No other authentication methods supported
+6. **Single OAuth Per Server**: One global OAuth callback per server per MCP specification
 
 ### 🔒 Security Requirements
 - HTTPS enforcement in production
@@ -69,22 +70,29 @@ src/
 ### Configuration Pattern
 ```javascript
 const middleware = await McpAuthMiddleware.create({
-    routes: {
-        '/route': {
-            authType: 'oauth21_scalekit', // Auth type identifier
-            providerUrl: 'string',     // Provider base URL
+    staticBearer: {
+        tokenSecret: 'secure-token',
+        attachedRoutes: ['/api', '/tools']
+    },
+    oauth21: {
+        authType: 'oauth21_scalekit',
+        attachedRoutes: ['/oauth', '/secure'],
+        options: {
+            providerUrl: 'https://auth.scalekit.com',
+            mcpId: 'res_your_id',
             clientId: 'string',
             clientSecret: 'string',
-            requiredScopes: ['array'],
-            forceHttps: true,          // Route-specific HTTPS enforcement
-            resourceUri: 'string'
+            resource: 'mcp:tools:*',
+            scope: 'mcp:tools:* mcp:resources:read'
         }
-    }
+    },
+    baseUrl: 'https://api.example.com',
+    forceHttps: true
 })
 ```
 
 ### Public API Methods
-- `.create({ routes, silent? })` - Create middleware instance
+- `.create({ staticBearer?, oauth21?, silent?, baseUrl?, forceHttps? })` - Create middleware instance
 - `.router()` - Get Express router with OAuth endpoints
 - `.getRoutes()` - Get configured routes array
 - `.getRouteConfig({ routePath })` - Get specific route config
@@ -98,7 +106,7 @@ npm run test:coverage:src   # Run with coverage report
 ## OAuth Flow Endpoints (Auto-Generated)
 ```
 /route/auth/login      # Initiate OAuth flow
-/route/auth/callback   # OAuth callback handler
+/auth/callback         # Global OAuth callback handler (one per server per MCP spec)
 ```
 
 ## Discovery Endpoints (RFC Compliant)
@@ -116,7 +124,7 @@ npm run test:coverage:src   # Run with coverage report
 
 ### ❌ Missing AuthType Configuration
 - **Problem**: Routes without authType specification
-- **Solution**: Add `authType: 'oauth21_auth0'`, `authType: 'oauth21_scalekit'`, or `authType: 'staticBearer'`
+- **Solution**: Add `authType: 'oauth21_scalekit'` or use `staticBearer` config
 
 ### ❌ Missing Validation
 - **Problem**: Calling implementation methods directly
@@ -157,7 +165,7 @@ const credentials = TestUtils.getEnvParams( {
 
 - **Node.js 22** with ES modules (.mjs)
 - **Express.js** for HTTP server
-- **Multi-AuthType Support**: oauth21_auth0, oauth21_scalekit, staticBearer
+- **Multi-AuthType Support**: oauth21_scalekit, staticBearer
 - **Jest** for testing
 - **OAuth 2.1** security profile
 - **RFC 8414, 9728, 8707** compliance

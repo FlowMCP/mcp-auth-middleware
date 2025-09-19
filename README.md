@@ -84,6 +84,7 @@ app.use(middleware.router())
 app.listen(3000)
 
 // OAuth flow: Visit https://api.example.com:3000/oauth/auth/login
+// Callback: https://api.example.com:3000/auth/callback (global per MCP spec)
 ```
 
 ### Mixed Authentication
@@ -171,7 +172,7 @@ OAuth 2.1 implementation with ScaleKit provider support for enterprise authentic
 
 **OAuth Endpoints:**
 - `/oauth/auth/login` - Initiate OAuth flow
-- `/oauth/auth/callback` - OAuth callback handler
+- `/auth/callback` - Global OAuth callback handler (one per server per MCP spec)
 - `/oauth/register` - Dynamic client registration
 
 **Discovery Endpoints (MCP Spec compliant):**
@@ -368,18 +369,23 @@ npm run test:file tests/unit/index.test.js
 - ✅ 11 test suites passing
 - ✅ 204 tests passing
 - ✅ 0 failing tests
+- ✅ Tool testing with MCP session management
+- ✅ Global OAuth callback architecture
 
 **Manual testing:**
 
 ```bash
-# Run reference implementation
-node tests/manual/1-reference-implementation-flowmcp.mjs
+# Run reference implementation with OAuth testing
+node tests/manual/2-reference-dynamic-implmentation.mjs --routeType=oauth
 
 # Test StaticBearer flow
-node tests/manual/test-mcp-bearer.mjs
+npm run test:local:bearer
 
-# Demo new API
-node tests/manual/new-api-demo.mjs
+# Test OAuth flow with tool execution
+npm run test:local:oauth
+
+# Test free route (no authentication)
+npm run test:local:free
 ```
 
 ## License

@@ -1,6 +1,6 @@
 {
     "name": "mcp-auth-middleware",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "description": "OAuth 2.1 authentication middleware for MCP servers with Auth0 and static Bearer token support",
     "main": "./src/index.mjs",
     "type": "module",
@@ -14,8 +14,12 @@
         "test:performance": "NODE_OPTIONS='--experimental-vm-modules' jest tests/performance",
         "test:coverage:src": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage --collectCoverageFrom='src/**/*.mjs'",
         "test:file": "NODE_OPTIONS='--experimental-vm-modules' jest",
-        "test:auth:scalekit": "node tests/manual/A-local-test.mjs authType=oauth21_scalekit serverPath=tests/manual/0-reference-implementation-mcp.mjs",
-        "test:auth:bearer": "node tests/manual/A-local-test.mjs authType=staticBearer serverPath=tests/manual/0-reference-implementation-mcp.mjs",
+        "test:local:free": "node tests/manual/2-reference-dynamic-implmentation.mjs --routeType=free-route",
+        "test:local:bearer": "node tests/manual/2-reference-dynamic-implmentation.mjs --routeType=static-bearer",
+        "test:local:oauth": "node tests/manual/2-reference-dynamic-implmentation.mjs --routeType=oauth",
+        "test:remote:free": "node tests/manual/3-remote-test.mjs --routeType=free-route",
+        "test:remote:bearer": "node tests/manual/3-remote-test.mjs --routeType=static-bearer",
+        "test:remote:oauth": "node tests/manual/3-remote-test.mjs --routeType=oauth",
         "start:mcp": "node tests/manual/0-reference-implementation-mcp.mjs",
         "start:flowmcp": "node tests/manual/1-reference-implementation-flowmcp.mjs",
         "inspector": "mcp-inspector"
@@ -44,7 +48,7 @@
     },
     "devDependencies": {
         "@jest/globals": "^29.7.0",
-        "@modelcontextprotocol/inspector": "^0.16.6",
+        "@modelcontextprotocol/inspector": "^0.16.7",
         "flowmcpServers": "github:flowmcp/flowMCP-servers#e5b13742c264ccb170077d2c9b0616da974a63b6",
         "jest": "^29.7.0",
         "puppeteer": "^24.20.0",

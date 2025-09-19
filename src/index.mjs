@@ -1,4 +1,5 @@
 import { McpAuthMiddleware as McpAuthMiddlewareImpl } from './task/McpAuthMiddleware.mjs'
+import { OAuthMiddlewareTester } from './tester/OAuthMiddlewareTester.mjs'
 import { Validation } from './task/Validation.mjs'
 
 
@@ -11,7 +12,7 @@ class McpAuthMiddleware {
     }
 
 
-    static async create( { staticBearer = null, oauth21 = null, silent = false, baseUrl = 'http://localhost:3000', forceHttps = false } ) {
+    static async create( { staticBearer = null, oauth21 = null, silent = false, baseUrl, forceHttps = false } ) {
         const { status, messages } = Validation.validationCreate( { staticBearer, oauth21, silent, baseUrl, forceHttps } )
         if( !status ) {
             throw new Error( `Validation failed: ${messages.join( ', ' )}` )
@@ -55,4 +56,4 @@ class McpAuthMiddleware {
 }
 
 
-export { McpAuthMiddleware }
+export { McpAuthMiddleware, OAuthMiddlewareTester }

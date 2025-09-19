@@ -163,7 +163,7 @@ class OAuth21ScalekitTokenValidator {
                 console.log( '🔍 JWT Token Debug Info:' )
                 console.log( '   Issuer:', decoded.payload.iss )
                 console.log( '   Audience:', decoded.payload.aud )
-                console.log( '   Expected Resource:', this.#config.resource )
+                console.log( '   Expected Audience:', this.#config.clientId )
                 console.log( '   Subject:', decoded.payload.sub )
                 console.log( '   Scopes:', decoded.payload.scope || decoded.payload.scopes )
             }
@@ -192,7 +192,7 @@ class OAuth21ScalekitTokenValidator {
                     {
                         algorithms: [ 'RS256' ],
                         issuer: this.#config.providerUrl,  // Correct ScaleKit issuer (base URL)
-                        audience: this.#config.resource
+                        audience: this.#config.clientId
                     },
                     ( verifyErr, decoded ) => {
                         if( verifyErr ) {

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 
-import { ConfigManager } from './ConfigManager.mjs'
+import { ConfigManager } from '../../.trash/ConfigManager.mjs'
 import { McpAuthMiddleware } from '../../src/index.mjs'
 
 
@@ -21,7 +21,7 @@ app.use( express.json() )
 const oauthMiddleware = await McpAuthMiddleware.create({
     oauth21: {
         authType: 'oauth21_scalekit',
-        attachedRoutes: [routePath],
+        attachedRoutes: [routePath, '/scalekit-route/streamable'],
         options: {
             providerUrl: authTypValue.providerUrl,
             mcpId: authTypValue.mcpId,
@@ -83,7 +83,29 @@ const transport = new StreamableHTTPServerTransport({
 // Connect MCP server to transport
 await server.connect( transport )
 
-// Mount the transport handler after OAuth middleware
+// Mount the transport handler for public streamable endpoint (unprotected)
+app.use( '/public/streamable', async ( req, res ) => {
+    try {
+        const parsedBody = req.body || {}
+        await transport.handleRequest( req, res, parsedBody )
+    } catch ( error ) {
+        console.error( 'Transport error:', error )
+        res.status( 500 ).json( { error: 'Internal server error' } )
+    }
+} )
+
+// Mount the transport handler for protected streamable endpoint
+app.use( '/scalekit-route/streamable', async ( req, res ) => {
+    try {
+        const parsedBody = req.body || {}
+        await transport.handleRequest( req, res, parsedBody )
+    } catch ( error ) {
+        console.error( 'Transport error:', error )
+        res.status( 500 ).json( { error: 'Internal server error' } )
+    }
+} )
+
+// Mount the transport handler for SSE endpoint (original)
 app.use( routePath, async ( req, res ) => {
     try {
         const parsedBody = req.body || {}
