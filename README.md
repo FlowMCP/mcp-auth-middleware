@@ -1,397 +1,176 @@
-# MCP OAuth Middleware
+[![Test](https://img.shields.io/github/actions/workflow/status/FlowMCP/mcp-auth-middleware/test-on-release.yml)](https://github.com/FlowMCP/mcp-auth-middleware/actions) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
-[![Test](https://img.shields.io/github/actions/workflow/status/flowmcp/oauth-middleware/test-on-release.yml)]() ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+# MCP Auth Middleware
 
-Express-compatible authentication middleware for securing MCP server endpoints with OAuth 2.1 (ScaleKit) and Bearer token support. **Version 1.0** with simplified API and MCP Spec compliance.
+**Authentication middleware specifically designed for Model Context Protocol (MCP) servers.** Provides secure, production-ready authentication strategies for MCP server implementations with Express.js integration.
 
-## 🚨 Breaking Changes in v1.0
+## Quickstart
 
-**Version 1.0 introduces breaking changes.** The API has been simplified and modernized:
+```bash
+git clone https://github.com/FlowMCP/mcp-auth-middleware.git
+cd mcp-auth-middleware
+npm install
+```
 
-- **❌ Auth0 support deprecated** → ✅ ScaleKit OAuth21 only
-- **❌ Complex route objects** → ✅ Simple `attachedRoutes` arrays
-- **❌ `routes` top-level key** → ✅ `staticBearer` + `oauth21` keys
-- **❌ Route-level discovery** → ✅ Root-level discovery (MCP compliant)
+```javascript
+import { McpAuthMiddleware } from './src/index.mjs'
 
-See [Migration Guide](#migration-guide) for upgrade instructions.
+const mcpAuth = await McpAuthMiddleware.create({
+    authType: 'scalekit',
+    options: {
+        providerUrl: 'https://your-org.scalekit.com',
+        clientId: 'your_client_id',
+        clientSecret: 'your_client_secret',
+        resource: 'http://localhost:3002/',
+        protectedResourceMetadata: {},
+        toolScopes: {}
+    },
+    attachedRoutes: ['/']
+})
+
+app.use(mcpAuth.router())
+```
+
+## Features
+
+- **MCP Server Authentication**: Three authentication strategies specifically designed for Model Context Protocol servers
+- **ScaleKit OAuth 2.0**: Production-ready OAuth 2.0 authentication for secure MCP deployments
+- **Development Support**: Free-route and static-bearer authentication for MCP testing and development
+- **Express.js Integration**: Ready-to-use router() method for seamless Express.js integration
+- **Route Protection**: Configurable route-based protection for MCP tools and endpoints
+- **Logging**: Configurable authentication logging for debugging and monitoring
 
 ## Table of Contents
 
-- [Installation](#installation)
-- [Quick Start](#quick-start)
+- [Methods](#methods)
+  - [McpAuthMiddleware.create()](#mcpauthmiddlewarecreate)
 - [Authentication Types](#authentication-types)
-  - [StaticBearer](#staticbearer)
-  - [OAuth21 ScaleKit](#oauth21-scalekit)
-  - [Mixed Authentication](#mixed-authentication)
-- [API Reference](#api-reference)
-- [Migration Guide](#migration-guide)
-- [Testing](#testing)
+  - [Free Route](#free-route)
+  - [Static Bearer](#static-bearer)
+  - [ScaleKit OAuth 2.0](#scalekit-oauth-20)
+- [Contribution](#contribution)
 - [License](#license)
 
-## Installation
+## Methods
 
-```bash
-npm install mcp-auth-middleware
+### McpAuthMiddleware.create()
+
+Creates an authentication middleware instance for MCP servers based on the specified authentication type.
+
+**Method**
+```javascript
+.create( { authType, options, attachedRoutes, silent } )
 ```
 
-## Quick Start
+| Key | Type | Description | Required |
+|-----|------|-------------|----------|
+| authType | string | Authentication type: `'free-route'`, `'static-bearer'`, `'scalekit'` | Yes |
+| options | object | Authentication-specific configuration object | Yes |
+| attachedRoutes | array of strings | Routes to protect. Example: `['/']` | No |
+| silent | boolean | Disable console logging. Defaults to `false` | No |
 
-### StaticBearer Authentication
-
+**Example**
 ```javascript
-import { McpAuthMiddleware } from 'mcp-auth-middleware'
-import express from 'express'
-
-const middleware = await McpAuthMiddleware.create({
-    staticBearer: {
-        tokenSecret: 'your-secure-bearer-token-here',
-        attachedRoutes: ['/api', '/tools']
+const mcpAuth = await McpAuthMiddleware.create({
+    authType: 'scalekit',
+    options: {
+        providerUrl: 'https://company.scalekit.com',
+        clientId: 'sk_client_abc123',
+        clientSecret: 'sk_secret_xyz789',
+        resource: 'http://localhost:3002/',
+        protectedResourceMetadata: { "mcp_server": true },
+        toolScopes: { "greeting_tool": ["read"] }
     },
-    baseUrl: 'https://api.example.com'
+    attachedRoutes: ['/'],
+    silent: false
 })
-
-const app = express()
-app.use(middleware.router())
-app.listen(3000)
-
-// Usage: curl -H "Authorization: Bearer your-secure-bearer-token-here" https://api.example.com:3000/api
 ```
 
-### OAuth21 ScaleKit Authentication
-
+**Returns**
 ```javascript
-import { McpAuthMiddleware } from 'mcp-auth-middleware'
-import express from 'express'
-
-const middleware = await McpAuthMiddleware.create({
-    oauth21: {
-        authType: 'oauth21_scalekit',
-        attachedRoutes: ['/oauth', '/secure'],
-        options: {
-            providerUrl: 'https://auth.scalekit.com',
-            mcpId: 'res_your_mcp_id',
-            clientId: 'your-scalekit-client-id',
-            clientSecret: 'your-scalekit-client-secret',
-            resource: 'mcp:tools:*',
-            scope: 'mcp:tools:* mcp:resources:read'
-        }
-    },
-    baseUrl: 'https://api.example.com'
-})
-
-const app = express()
-app.use(middleware.router())
-app.listen(3000)
-
-// OAuth flow: Visit https://api.example.com:3000/oauth/auth/login
-// Callback: https://api.example.com:3000/auth/callback (global per MCP spec)
-```
-
-### Mixed Authentication
-
-```javascript
-const middleware = await McpAuthMiddleware.create({
-    staticBearer: {
-        tokenSecret: 'your-bearer-token',
-        attachedRoutes: ['/api/v1', '/tools']
-    },
-    oauth21: {
-        authType: 'oauth21_scalekit',
-        attachedRoutes: ['/api/v2', '/admin'],
-        options: {
-            providerUrl: 'https://auth.scalekit.com',
-            mcpId: 'res_your_mcp_id',
-            clientId: 'your-client-id',
-            clientSecret: 'your-client-secret',
-            resource: 'mcp:admin:*',
-            scope: 'mcp:admin:* mcp:tools:*'
-        }
-    },
-    baseUrl: 'https://api.example.com',
-    forceHttps: true
-})
+{
+    router: Function  // Express.js router middleware function
+}
 ```
 
 ## Authentication Types
 
-### StaticBearer
+### Free Route
 
-Simple Bearer token authentication for internal APIs and development.
-
-**Configuration:**
-```javascript
-{
-    staticBearer: {
-        tokenSecret: 'your-secure-token-min-8-chars',
-        attachedRoutes: ['/api', '/tools', '/internal']
-    }
-}
-```
-
-**Required fields:**
-- `tokenSecret` (string): Bearer token (minimum 8 characters, cannot start with "Bearer")
-- `attachedRoutes` (array): Routes to protect with this authentication
-
-**Usage:**
-```bash
-curl -H "Authorization: Bearer your-secure-token-min-8-chars" \
-     https://api.example.com/api/endpoint
-```
-
-### OAuth21 ScaleKit
-
-OAuth 2.1 implementation with ScaleKit provider support for enterprise authentication.
-
-**Configuration:**
-```javascript
-{
-    oauth21: {
-        authType: 'oauth21_scalekit',
-        attachedRoutes: ['/oauth', '/secure'],
-        options: {
-            providerUrl: 'https://auth.scalekit.com',
-            mcpId: 'res_your_resource_id',
-            clientId: 'your-scalekit-client-id',
-            clientSecret: 'your-scalekit-client-secret',
-            resource: 'mcp:tools:*',
-            scope: 'mcp:tools:* mcp:resources:read'
-        }
-    }
-}
-```
-
-**Required fields:**
-- `authType`: Must be `'oauth21_scalekit'`
-- `attachedRoutes` (array): Routes to protect with OAuth
-- `options.providerUrl` (string): ScaleKit environment URL
-- `options.mcpId` (string): MCP resource ID (must start with 'res_')
-- `options.clientId` (string): ScaleKit client ID
-- `options.clientSecret` (string): ScaleKit client secret
-- `options.resource` (string): Resource identifier for MCP
-- `options.scope` (string): OAuth scopes
-
-**OAuth Endpoints:**
-- `/oauth/auth/login` - Initiate OAuth flow
-- `/auth/callback` - Global OAuth callback handler (one per server per MCP spec)
-- `/oauth/register` - Dynamic client registration
-
-**Discovery Endpoints (MCP Spec compliant):**
-- `/.well-known/oauth-authorization-server` - Authorization server metadata
-- `/.well-known/oauth-protected-resource` - Protected resource metadata
-- `/.well-known/jwks.json` - JSON Web Key Set
-
-### Mixed Authentication
-
-Combine StaticBearer and OAuth21 for different routes:
+No authentication required - suitable for development and testing MCP servers.
 
 ```javascript
-const middleware = await McpAuthMiddleware.create({
-    staticBearer: {
-        tokenSecret: 'internal-api-token',
-        attachedRoutes: ['/api/internal', '/tools']
-    },
-    oauth21: {
-        authType: 'oauth21_scalekit',
-        attachedRoutes: ['/api/public', '/admin'],
-        options: { /* ScaleKit config */ }
-    }
+const freeAuth = await McpAuthMiddleware.create({
+    authType: 'free-route',
+    options: {},
+    attachedRoutes: [],
+    silent: false
 })
 ```
 
-## API Reference
+### Static Bearer
 
-### .create(options)
+Simple Bearer token authentication for internal MCP servers.
 
-Creates a new MCP OAuth middleware instance.
-
-**Parameters:**
-
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| staticBearer | object | StaticBearer authentication config | No |
-| oauth21 | object | OAuth21 authentication config | No |
-| silent | boolean | Suppress console output | No |
-| baseUrl | string | Base URL for redirects and metadata | No |
-| forceHttps | boolean | Require HTTPS for OAuth endpoints | No |
-
-**Returns:** `Promise<McpAuthMiddleware>`
-
-**Example:**
 ```javascript
-const middleware = await McpAuthMiddleware.create({
-    staticBearer: {
-        tokenSecret: 'secure-token',
-        attachedRoutes: ['/api']
+const bearerAuth = await McpAuthMiddleware.create({
+    authType: 'static-bearer',
+    options: {
+        bearerToken: 'your-secret-bearer-token'
     },
-    silent: true,
-    baseUrl: 'https://api.example.com'
+    attachedRoutes: ['/'],
+    silent: false
 })
 ```
 
-### .router()
-
-Returns Express router middleware.
-
-**Returns:** `Express Router`
-
-**Example:**
-```javascript
-const app = express()
-app.use(middleware.router())
+**Required Request Header:**
+```json
+{
+    "Authorization": "Bearer your-secret-bearer-token"
+}
 ```
 
-### .getRoutes()
+### ScaleKit OAuth 2.0
 
-Returns array of all protected route paths.
+Production-ready OAuth 2.0 authentication via ScaleKit platform for secure MCP servers.
 
-**Returns:** `string[]`
-
-**Example:**
 ```javascript
-const routes = middleware.getRoutes()
-// → ['/api', '/tools', '/oauth']
-```
-
-### .getRouteConfig({ routePath })
-
-Returns configuration for a specific route.
-
-**Parameters:**
-
-| Key | Type | Description | Required |
-|-----|------|-------------|----------|
-| routePath | string | Route path to get config for | Yes |
-
-**Returns:** `object | undefined`
-
-**Example:**
-```javascript
-const config = middleware.getRouteConfig({ routePath: '/api' })
-console.log(config.authType) // → 'staticBearer'
-```
-
-## Migration Guide
-
-### From v0.x to v1.0
-
-**Step 1: Update API structure**
-
-❌ **Old (v0.x):**
-```javascript
-await McpAuthMiddleware.create({
-    routes: {
-        '/api': {
-            authType: 'oauth21_auth0',
-            providerUrl: 'https://tenant.auth0.com',
-            clientId: 'client-id',
-            clientSecret: 'client-secret',
-            scope: 'openid profile',
-            audience: 'https://api.example.com',
-            realm: 'api-realm',
-            requiredScopes: ['openid', 'profile'],
-            requiredRoles: ['user']
+const scalekitAuth = await McpAuthMiddleware.create({
+    authType: 'scalekit',
+    options: {
+        providerUrl: 'https://your-org.scalekit.com',
+        clientId: 'sk_client_abc123',
+        clientSecret: 'sk_secret_xyz789',
+        resource: 'http://localhost:3002/',
+        protectedResourceMetadata: {
+            "mcp_server_id": "res_123",
+            "tools": ["greeting", "weather"]
         },
-        '/tools': {
-            authType: 'staticBearer',
-            token: 'bearer-token',
-            realm: 'tools-realm'
+        toolScopes: {
+            "greeting_tool": ["read", "write"],
+            "weather_tool": ["read"]
         }
-    }
-})
-```
-
-✅ **New (v1.0):**
-```javascript
-await McpAuthMiddleware.create({
-    staticBearer: {
-        tokenSecret: 'bearer-token',
-        attachedRoutes: ['/tools']
     },
-    oauth21: {
-        authType: 'oauth21_scalekit',
-        attachedRoutes: ['/api'],
-        options: {
-            providerUrl: 'https://auth.scalekit.com',
-            mcpId: 'res_your_id',
-            clientId: 'client-id',
-            clientSecret: 'client-secret',
-            resource: 'mcp:tools:*',
-            scope: 'mcp:tools:* mcp:resources:read'
-        }
-    }
+    attachedRoutes: ['/'],
+    silent: false
 })
 ```
 
-**Step 2: Update provider configuration**
+**Options for ScaleKit:**
 
-- **Auth0 → ScaleKit:** Auth0 support has been removed. Migrate to ScaleKit OAuth21
-- **Token field:** `token` → `tokenSecret` for StaticBearer
-- **Route structure:** Individual route configs → `attachedRoutes` arrays
-- **Discovery endpoints:** Route-specific → Root-level only
+| Key | Type | Description | Required |
+|-----|------|-------------|----------|
+| providerUrl | string | ScaleKit organization URL | Yes |
+| clientId | string | ScaleKit client ID | Yes |
+| clientSecret | string | ScaleKit client secret | Yes |
+| resource | string | MCP server URL/identifier | Yes |
+| protectedResourceMetadata | object | Metadata for the protected MCP resource | Yes |
+| toolScopes | object | Tool-specific permission scopes | Yes |
 
-**Step 3: Update environment variables**
+## Contribution
 
-Remove Auth0 variables, add ScaleKit:
-```env
-# Remove these (Auth0)
-# AUTH0_DOMAIN=tenant.auth0.com
-# AUTH0_CLIENT_ID=...
-# AUTH0_CLIENT_SECRET=...
-
-# Add these (ScaleKit)
-SCALEKIT_ENVIRONMENT_URL=https://auth.scalekit.com
-SCALEKIT_CLIENT_ID=your_client_id
-SCALEKIT_CLIENT_SECRET=your_client_secret
-SCALEKIT_MCP_ID=res_your_resource_id
-```
-
-**Step 4: Update discovery endpoint URLs**
-
-- **Old:** `/route/.well-known/oauth-authorization-server`
-- **New:** `/.well-known/oauth-authorization-server` (root level)
-
-## Testing
-
-Run the complete test suite:
-
-```bash
-# All tests
-npm test
-
-# Test coverage
-npm run test:coverage:src
-
-# Specific test file
-npm run test:file tests/unit/index.test.js
-```
-
-**Test Results (v1.0):**
-- ✅ 11 test suites passing
-- ✅ 204 tests passing
-- ✅ 0 failing tests
-- ✅ Tool testing with MCP session management
-- ✅ Global OAuth callback architecture
-
-**Manual testing:**
-
-```bash
-# Run reference implementation with OAuth testing
-node tests/manual/2-reference-dynamic-implmentation.mjs --routeType=oauth
-
-# Test StaticBearer flow
-npm run test:local:bearer
-
-# Test OAuth flow with tool execution
-npm run test:local:oauth
-
-# Test free route (no authentication)
-npm run test:local:free
-```
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT © [Your Name]
-
----
-
-📚 **Documentation for MCP (Model Context Protocol) compliance and ScaleKit integration available in the `/docs` folder.**
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.

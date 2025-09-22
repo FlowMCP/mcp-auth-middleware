@@ -1,59 +1,33 @@
-import { McpAuthMiddleware as McpAuthMiddlewareImpl } from './task/McpAuthMiddleware.mjs'
-import { OAuthMiddlewareTester } from './tester/OAuthMiddlewareTester.mjs'
-import { Validation } from './task/Validation.mjs'
+import { FreeRouteMiddleware } from './authTypes/FreeRouteMiddleware.mjs'
+import { ScaleKitMiddleware } from './authTypes/ScaleKitMiddleware.mjs'
+import { StaticBearerMiddleware } from './authTypes/StaticBearerMiddleware.mjs'
 
 
 class McpAuthMiddleware {
-    #impl
+    static async create( mcpAuthConfig ) {
+        const { authType, options, attachedRoutes, silent = false } = mcpAuthConfig
 
-
-    constructor( impl ) {
-        this.#impl = impl
-    }
-
-
-    static async create( { staticBearer = null, oauth21 = null, silent = false, baseUrl, forceHttps = false } ) {
-        const { status, messages } = Validation.validationCreate( { staticBearer, oauth21, silent, baseUrl, forceHttps } )
-        if( !status ) {
-            throw new Error( `Validation failed: ${messages.join( ', ' )}` )
+        let middlewareInstance = null
+        switch( authType ) {
+            case 'free-route':
+                middlewareInstance = await FreeRouteMiddleware
+                    .create( { options, attachedRoutes, silent } )
+                break
+            case 'static-bearer':
+                middlewareInstance = await StaticBearerMiddleware
+                    .create( { options, attachedRoutes, silent } )
+                break
+            case 'scalekit':
+                middlewareInstance = await ScaleKitMiddleware
+                    .create( { options, attachedRoutes, silent } )
+                break
+            default:
+                throw new Error(`Unsupported authType: ${authType}. Supported types: free-route, static-bearer, scalekit`)
         }
 
-        const impl = await McpAuthMiddlewareImpl.create( { staticBearer, oauth21, silent, baseUrl, forceHttps } )
-        return new McpAuthMiddleware( impl )
+        return middlewareInstance
     }
-
-
-    router() {
-        return this.#impl.router()
-    }
-
-
-    getRouteConfig( { routePath } ) {
-        const { status, messages } = Validation.validationGetRouteConfig( { routePath } )
-        if( !status ) {
-            throw new Error( `Validation failed: ${messages.join( ', ' )}` )
-        }
-
-        return this.#impl.getRouteConfig( { routePath } )
-    }
-
-
-    getRouteClient( { routePath } ) {
-        const { status, messages } = Validation.validationGetRouteConfig( { routePath } )
-        if( !status ) {
-            throw new Error( `Validation failed: ${messages.join( ', ' )}` )
-        }
-
-        return this.#impl.getRouteClient( { routePath } )
-    }
-
-
-    getRoutes() {
-        return this.#impl.getRoutes()
-    }
-
-
 }
 
 
-export { McpAuthMiddleware, OAuthMiddlewareTester }
+export { McpAuthMiddleware, FreeRouteMiddleware, ScaleKitMiddleware, StaticBearerMiddleware }
