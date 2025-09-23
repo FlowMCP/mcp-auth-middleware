@@ -89,7 +89,7 @@ describe( 'FreeRouteMiddleware', () => {
         } )
 
 
-        it( 'logs access when silent is false', async () => {
+        it( 'processes request without logging when silent is false', async () => {
             const middleware = await FreeRouteMiddleware.create( { silent: false } )
             const router = middleware.router()
 
@@ -101,11 +101,12 @@ describe( 'FreeRouteMiddleware', () => {
             const mockNext = jest.fn()
 
             const middlewareFunction = router.stack[0].handle
+            const initialCallCount = consoleSpy.mock.calls.length
 
             middlewareFunction( mockReq, mockRes, mockNext )
 
-            expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( 'FREE ACCESS' ) )
-            expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( 'POST /api/test' ) )
+            // Should not log any request-level information (verbosity reduced)
+            expect( consoleSpy.mock.calls.length ).toBe( initialCallCount )
             expect( mockNext ).toHaveBeenCalledWith()
         } )
 

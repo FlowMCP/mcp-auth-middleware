@@ -141,7 +141,7 @@ class AuthKitMiddleware {
 
             if( !this.#silent ) {
                 const timestamp = new Date().toISOString()
-                console.log( `[${timestamp}] AUTH SUCCESS - JWT token validated for audience: ${this.#expectedAudience}` )
+                console.log( `[${timestamp}] AUTH SUCCESS - Token validated for audience: ${this.#expectedAudience}` )
             }
 
             return next()
@@ -204,8 +204,8 @@ class AuthKitMiddleware {
     #buildWWWAuthenticateHeader() {
         // Extract the resource URL from protectedResourceMetadata
         const metadata = JSON.parse( this.#protectedResourceMetadata )
-        const resourceUrl = metadata.resource || 'http://localhost:3000/'
-        return `Bearer realm="OAuth", resource_metadata="${resourceUrl}.well-known/oauth-protected-resource"`
+        const resourceUrl = metadata.resource
+        return `Bearer realm="OAuth", resource_metadata="${resourceUrl}/.well-known/oauth-protected-resource"`
     }
 
 

@@ -33,11 +33,6 @@ class FreeRouteMiddleware {
 
         // No authentication - all routes pass through
         router.use( ( req, res, next ) => {
-            if( !this.#silent ) {
-                const timestamp = new Date().toISOString()
-                console.log( `[${timestamp}] FREE ACCESS - No authentication required for ${req.method} ${req.path}` )
-            }
-
             return next()
         } )
 

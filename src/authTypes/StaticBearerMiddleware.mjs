@@ -101,7 +101,7 @@ class StaticBearerMiddleware {
 
             if( !this.#silent ) {
                 const timestamp = new Date().toISOString()
-                console.log( `[${timestamp}] AUTH SUCCESS - Static Bearer Token validated` )
+                console.log( `[${timestamp}] AUTH SUCCESS - Token validated for audience: static-bearer` )
             }
 
             return next()

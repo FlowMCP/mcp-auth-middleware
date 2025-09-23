@@ -119,7 +119,7 @@ class ScaleKitMiddleware {
 
             if( !this.#silent ) {
                 const timestamp = new Date().toISOString()
-                console.log( `[${timestamp}] AUTH SUCCESS - OAuth token validated for audience: ${this.#expectedAudience}` )
+                console.log( `[${timestamp}] AUTH SUCCESS - Token validated for audience: ${this.#expectedAudience}` )
             }
 
             return next()
