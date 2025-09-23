@@ -33,8 +33,9 @@ app.use(mcpAuth.router())
 
 ## Features
 
-- **MCP Server Authentication**: Three authentication strategies specifically designed for Model Context Protocol servers
+- **MCP Server Authentication**: Four authentication strategies specifically designed for Model Context Protocol servers
 - **ScaleKit OAuth 2.0**: Production-ready OAuth 2.0 authentication for secure MCP deployments
+- **AuthKit OAuth 2.0**: WorkOS AuthKit integration for enterprise-grade authentication
 - **Development Support**: Free-route and static-bearer authentication for MCP testing and development
 - **Express.js Integration**: Ready-to-use router() method for seamless Express.js integration
 - **Route Protection**: Configurable route-based protection for MCP tools and endpoints
@@ -48,6 +49,7 @@ app.use(mcpAuth.router())
   - [Free Route](#free-route)
   - [Static Bearer](#static-bearer)
   - [ScaleKit OAuth 2.0](#scalekit-oauth-20)
+  - [AuthKit OAuth 2.0](#authkit-oauth-20)
 - [Contribution](#contribution)
 - [License](#license)
 
@@ -64,7 +66,7 @@ Creates an authentication middleware instance for MCP servers based on the speci
 
 | Key | Type | Description | Required |
 |-----|------|-------------|----------|
-| authType | string | Authentication type: `'free-route'`, `'static-bearer'`, `'scalekit'` | Yes |
+| authType | string | Authentication type: `'free-route'`, `'static-bearer'`, `'scalekit'`, `'authkit'` | Yes |
 | options | object | Authentication-specific configuration object | Yes |
 | attachedRoutes | array of strings | Routes to protect. Example: `['/']` | No |
 | silent | boolean | Disable console logging. Defaults to `false` | No |
@@ -165,6 +167,44 @@ const scalekitAuth = await McpAuthMiddleware.create({
 | clientSecret | string | ScaleKit client secret | Yes |
 | resource | string | MCP server URL/identifier | Yes |
 | protectedResourceMetadata | object | Metadata for the protected MCP resource | Yes |
+| toolScopes | object | Tool-specific permission scopes | Yes |
+
+### AuthKit OAuth 2.0
+
+Enterprise-grade OAuth 2.0 authentication via WorkOS AuthKit for secure MCP servers.
+
+```javascript
+const authkitAuth = await McpAuthMiddleware.create({
+    authType: 'authkit',
+    options: {
+        authKitDomain: 'your-authkit-domain.workos.com',
+        clientId: 'client_01K5SH7EEBYX79PEQXTN19WNAB',
+        clientSecret: 'sk_test_abc123xyz789',
+        expectedAudience: 'client_01K5SH7EEBYX79PEQXTN19WNAB',
+        protectedResourceMetadata: JSON.stringify({
+            "resource": "http://localhost:3000/",
+            "authorization_servers": ["https://your-authkit-domain.workos.com"],
+            "bearer_methods_supported": ["header"]
+        }),
+        toolScopes: {
+            "ping_tool": ["read"],
+            "data_tool": ["read", "write"]
+        }
+    },
+    attachedRoutes: ['/'],
+    silent: false
+})
+```
+
+**Options for AuthKit:**
+
+| Key | Type | Description | Required |
+|-----|------|-------------|----------|
+| authKitDomain | string | WorkOS AuthKit domain | Yes |
+| clientId | string | AuthKit client ID | Yes |
+| clientSecret | string | AuthKit client secret | Yes |
+| expectedAudience | string | Expected JWT audience (usually client ID) | Yes |
+| protectedResourceMetadata | string | JSON string of protected resource metadata | Yes |
 | toolScopes | object | Tool-specific permission scopes | Yes |
 
 ## Contribution

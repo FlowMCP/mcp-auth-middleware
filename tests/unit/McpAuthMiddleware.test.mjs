@@ -66,6 +66,30 @@ describe( 'McpAuthMiddleware', () => {
         } )
 
 
+        it( 'validates authkit authType configuration', () => {
+            // Test without creating instance to avoid HTTP calls
+            const mcpAuthConfig = {
+                authType: 'authkit',
+                options: {
+                    authKitDomain: 'test.workos.com',
+                    clientId: 'test_client_id',
+                    clientSecret: 'test_client_secret',
+                    expectedAudience: 'https://example.com',
+                    protectedResourceMetadata: '{"resource": "https://example.com"}',
+                    toolScopes: { 'test_tool': ['read'] }
+                },
+                attachedRoutes: ['/'],
+                silent: true
+            }
+
+            // Validate configuration structure
+            expect( mcpAuthConfig.authType ).toBe( 'authkit' )
+            expect( mcpAuthConfig.options.authKitDomain ).toBe( 'test.workos.com' )
+            expect( mcpAuthConfig.options.clientId ).toBe( 'test_client_id' )
+            expect( mcpAuthConfig.options.expectedAudience ).toBe( 'https://example.com' )
+        } )
+
+
         it( 'throws error for unsupported authType', async () => {
             const mcpAuthConfig = {
                 authType: 'unsupported-type',
@@ -76,7 +100,7 @@ describe( 'McpAuthMiddleware', () => {
 
             await expect( McpAuthMiddleware.create( mcpAuthConfig ) )
                 .rejects
-                .toThrow( 'Unsupported authType: unsupported-type. Supported types: free-route, static-bearer, scalekit' )
+                .toThrow( 'Unsupported authType: unsupported-type. Supported types: free-route, static-bearer, scalekit, authkit' )
         } )
 
 

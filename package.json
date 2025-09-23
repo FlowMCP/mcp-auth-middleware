@@ -12,9 +12,11 @@
     "test:file": "node --experimental-vm-modules node_modules/.bin/jest",
     "test:mcp:free": "node tests/manual/0-dynamic-implmentation.mjs --mcpType=standard --routeType=free-route",
     "test:mcp:scalekit": "node tests/manual/0-dynamic-implmentation.mjs --mcpType=standard --routeType=scaleKit",
+    "test:mcp:authkit": "node tests/manual/0-dynamic-implmentation.mjs --mcpType=standard --routeType=authKit",
     "test:mcp:bearer": "node tests/manual/0-dynamic-implmentation.mjs --mcpType=standard --routeType=static-bearer",
     "test:flowmcp:free": "node tests/manual/0-dynamic-implmentation.mjs --mcpType=flowmcp --routeType=free-route",
     "test:flowmcp:scalekit": "node tests/manual/0-dynamic-implmentation.mjs --mcpType=flowmcp --routeType=scaleKit",
+    "test:flowmcp:authkit": "node tests/manual/0-dynamic-implmentation.mjs --mcpType=flowmcp --routeType=authKit",
     "test:flowmcp:bearer": "node tests/manual/0-dynamic-implmentation.mjs --mcpType=flowmcp --routeType=static-bearer",
     "inspector": "mcp-inspector"
   },
@@ -22,7 +24,17 @@
     "type": "git",
     "url": "git+https://github.com/FlowMCP/mcp-auth-middleware.git"
   },
-  "keywords": ["mcp", "model-context-protocol", "authentication", "middleware", "express", "oauth", "scalekit"],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "authentication",
+    "middleware",
+    "express",
+    "oauth",
+    "scalekit",
+    "authkit",
+    "workos"
+  ],
   "author": "",
   "license": "MIT",
   "type": "module",
@@ -31,14 +43,15 @@
   },
   "homepage": "https://github.com/FlowMCP/mcp-auth-middleware#readme",
   "dependencies": {
-    "@scalekit-sdk/node": "^2.1.3"
+    "@scalekit-sdk/node": "^2.1.3",
+    "jose": "^6.1.0"
   },
   "devDependencies": {
-    "jest": "^29.0.0",
     "@jest/globals": "^29.0.0",
-    "flowmcp": "github:flowmcp/flowmcp#91ccaf8dc7b61b5df3cfa780699cbf4973cd3cbd",
     "@modelcontextprotocol/inspector": "^0.16.8",
-    "puppeteer": "^24.22.0",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "flowmcp": "github:flowmcp/flowmcp#91ccaf8dc7b61b5df3cfa780699cbf4973cd3cbd",
+    "jest": "^29.0.0",
+    "puppeteer": "^24.22.0"
   }
 }

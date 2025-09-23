@@ -83,8 +83,12 @@ class ConfigExamples {
                 const oauth = this.getMcpAuthScaleKitConfig()['mcpAuthConfig']
                 mcpAuthConfig = { ...oauth }
                 break
+            case 'authKit':
+                const authKit = this.getMcpAuthAuthKitConfig()['mcpAuthConfig']
+                mcpAuthConfig = { ...authKit }
+                break
             default:
-                throw new Error(`Invalid routeType: ${routeType}. Valid values: free-route, static-bearer, scaleKit`)
+                throw new Error(`Invalid routeType: ${routeType}. Valid values: free-route, static-bearer, scaleKit, authKit`)
         }
 
         return { mcpAuthConfig }
@@ -137,6 +141,33 @@ class ConfigExamples {
                 clientSecret: SCALEKIT_CLIENT_SECRET,
                 resource: SCALEKIT_EXPECTED_AUDIENCE,
                 protectedResourceMetadata: SCALEKIT_PROTECTED_RESOURCE_METADATA,
+                toolScopes: {}
+            },
+            attachedRoutes: [ routePath ]
+        }
+
+        return { mcpAuthConfig }
+    }
+
+
+    getMcpAuthAuthKitConfig() {
+        const { envObject, routePath } = this.#state
+        const {
+            AUTHKIT_DOMAIN,
+            AUTHKIT_CLIENT_ID,
+            AUTHKIT_CLIENT_SECRET,
+            AUTHKIT_EXPECTED_AUDIENCE,
+            AUTHKIT_PROTECTED_RESOURCE_METADATA
+        } = envObject
+
+        const mcpAuthConfig = {
+            'authType': 'authkit',
+            options: {
+                authKitDomain: AUTHKIT_DOMAIN,
+                clientId: AUTHKIT_CLIENT_ID,
+                clientSecret: AUTHKIT_CLIENT_SECRET,
+                expectedAudience: AUTHKIT_EXPECTED_AUDIENCE,
+                protectedResourceMetadata: AUTHKIT_PROTECTED_RESOURCE_METADATA,
                 toolScopes: {}
             },
             attachedRoutes: [ routePath ]
@@ -242,7 +273,12 @@ class ConfigExamples {
                 'SCALEKIT_MCP_ID',
                 // 'SCALEKIT_ORGANIZATION_ID',
                 'SCALEKIT_PROTECTED_RESOURCE_METADATA',
-                'SCALEKIT_EXPECTED_AUDIENCE'
+                'SCALEKIT_EXPECTED_AUDIENCE',
+                'AUTHKIT_DOMAIN',
+                'AUTHKIT_CLIENT_ID',
+                'AUTHKIT_CLIENT_SECRET',
+                'AUTHKIT_EXPECTED_AUDIENCE',
+                'AUTHKIT_PROTECTED_RESOURCE_METADATA'
             ]
         } )
         let baseUrl = null

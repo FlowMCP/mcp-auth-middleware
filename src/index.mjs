@@ -1,6 +1,7 @@
 import { FreeRouteMiddleware } from './authTypes/FreeRouteMiddleware.mjs'
 import { ScaleKitMiddleware } from './authTypes/ScaleKitMiddleware.mjs'
 import { StaticBearerMiddleware } from './authTypes/StaticBearerMiddleware.mjs'
+import { AuthKitMiddleware } from './authTypes/AuthKitMiddleware.mjs'
 
 
 class McpAuthMiddleware {
@@ -21,8 +22,12 @@ class McpAuthMiddleware {
                 middlewareInstance = await ScaleKitMiddleware
                     .create( { options, attachedRoutes, silent } )
                 break
+            case 'authkit':
+                middlewareInstance = await AuthKitMiddleware
+                    .create( { options, attachedRoutes, silent } )
+                break
             default:
-                throw new Error(`Unsupported authType: ${authType}. Supported types: free-route, static-bearer, scalekit`)
+                throw new Error(`Unsupported authType: ${authType}. Supported types: free-route, static-bearer, scalekit, authkit`)
         }
 
         return middlewareInstance
@@ -30,4 +35,4 @@ class McpAuthMiddleware {
 }
 
 
-export { McpAuthMiddleware, FreeRouteMiddleware, ScaleKitMiddleware, StaticBearerMiddleware }
+export { McpAuthMiddleware, FreeRouteMiddleware, ScaleKitMiddleware, StaticBearerMiddleware, AuthKitMiddleware }
