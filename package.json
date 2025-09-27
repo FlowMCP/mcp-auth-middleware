@@ -1,6 +1,6 @@
 {
   "name": "mcp-auth-middleware",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "description": "Authentication middleware specifically designed for Model Context Protocol (MCP) servers with Express.js integration",
   "main": "src/index.mjs",
   "directories": {
