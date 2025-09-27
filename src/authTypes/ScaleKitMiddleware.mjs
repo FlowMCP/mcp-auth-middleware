@@ -8,6 +8,7 @@ class ScaleKitMiddleware {
     #attachedRoutes
     #toolScopes
     #protectedResourceMetadata
+    #providerUrl
     #silent
 
 
@@ -26,6 +27,7 @@ class ScaleKitMiddleware {
         this.#protectedResourceMetadata = protectedResourceMetadata
         this.#attachedRoutes = attachedRoutes
         this.#toolScopes = toolScopes
+        this.#providerUrl = providerUrl
         this.#silent = silent
     }
 
@@ -49,7 +51,7 @@ class ScaleKitMiddleware {
             console.log( '\n' + '-'.repeat( 80 ) )
             console.log( ' AUTHENTICATION MIDDLEWARE' )
             console.log( '-'.repeat( 80 ) )
-            console.log( ` Type:                 OAuth 2.0 (ScaleKit)` )
+            console.log( ` Type:                 OAuth 2.1 (ScaleKit)` )
             console.log( ` Provider URL:         ${options.providerUrl}` )
             console.log( ` Client ID:            ${options.clientId.substring( 0, 8 )}...` )
             console.log( ` Resource/Audience:    ${options.resource}` )
@@ -65,10 +67,21 @@ class ScaleKitMiddleware {
 
     router() {
         const router = express.Router()
+        const resourcePath = this.#attachedRoutes[0] || ''
 
-        // OAuth Well-Known Endpoint (always available)
-        router.get( '/.well-known/oauth-protected-resource', ( _req, res ) => {
+        // OAuth Well-Known Endpoints - path-specific registration for MCP 2.1 compliance
+        // The endpoints must be registered under the resource path, not at root level
+        router.get( `${resourcePath}/.well-known/oauth-protected-resource`, ( _req, res ) => {
             return this.#handleWellKnownEndpoint( { res } )
+        } )
+
+        router.get( `${resourcePath}/.well-known/oauth-authorization-server`, async ( _req, res ) => {
+            return this.#handleAuthorizationServerMetadata( { res } )
+        } )
+
+        // Dynamic Client Registration Endpoint (root level)
+        router.post( '/register', ( req, res ) => {
+            return this.#handleClientRegistration( { req, res } )
         } )
 
         // Authentication middleware for all other routes
@@ -180,7 +193,13 @@ class ScaleKitMiddleware {
 
 
     #buildWWWAuthenticateHeader() {
-        return `Bearer realm="OAuth", resource_metadata="${this.#expectedAudience}/.well-known/oauth-protected-resource"`
+        const baseUrl = this.#expectedAudience.replace( /\/$/, '' )
+        const resourcePath = this.#attachedRoutes[0] || ''
+
+        // Build the correct metadata URL with the resource path before .well-known
+        // Handle root path case to avoid double slashes
+        const fullPath = resourcePath === '/' ? '' : resourcePath
+        return `Bearer realm="OAuth", resource_metadata="${baseUrl}${fullPath}/.well-known/oauth-protected-resource"`
     }
 
 
@@ -190,6 +209,83 @@ class ScaleKitMiddleware {
         const metadata = JSON.parse( this.#protectedResourceMetadata )
         res.setHeader( 'Content-Type', 'application/json' )
         res.status( 200 ).json( metadata )
+    }
+
+
+    async #handleAuthorizationServerMetadata( { res } ) {
+        try {
+            const response = await fetch(
+                `${this.#providerUrl}/.well-known/oauth-authorization-server`
+            )
+
+            let metadata
+            if( response.ok ) {
+                const contentType = response.headers.get( 'content-type' )
+                if( contentType && contentType.includes( 'application/json' ) ) {
+                    metadata = await response.json()
+                } else {
+                    throw new Error( `Non-JSON response: ${response.status} ${response.statusText}` )
+                }
+            } else {
+                throw new Error( `HTTP ${response.status}: ${response.statusText}` )
+            }
+
+            // Add registration endpoint at root level
+            const baseUrl = this.#expectedAudience.replace( /\/$/, '' )
+            metadata.registration_endpoint = `${baseUrl}/register`
+
+            res.setHeader( 'Content-Type', 'application/json' )
+            res.status( 200 ).json( metadata )
+        } catch( error ) {
+            if( !this.#silent ) {
+                console.error( 'Failed to fetch authorization server metadata:', error )
+            }
+
+            // Fallback: Generate basic metadata if ScaleKit doesn't provide it
+            const baseUrl = this.#expectedAudience.replace( /\/$/, '' )
+            const fallbackMetadata = {
+                issuer: this.#providerUrl,
+                authorization_endpoint: `${this.#providerUrl}/oauth/authorize`,
+                token_endpoint: `${this.#providerUrl}/oauth/token`,
+                registration_endpoint: `${baseUrl}/register`,
+                scopes_supported: [ 'openid', 'profile', 'email' ],
+                response_types_supported: [ 'code' ],
+                grant_types_supported: [ 'authorization_code', 'client_credentials' ],
+                token_endpoint_auth_methods_supported: [ 'client_secret_basic', 'client_secret_post' ]
+            }
+
+            res.setHeader( 'Content-Type', 'application/json' )
+            res.status( 200 ).json( fallbackMetadata )
+        }
+    }
+
+
+    async #handleClientRegistration( { req, res } ) {
+        try {
+            const { client_name, redirect_uris, grant_types = ['authorization_code'] } = req.body
+
+            const crypto = await import( 'crypto' )
+            const client_id = `mcp_${crypto.randomUUID()}`
+            const client_secret = crypto.randomBytes( 32 ).toString( 'base64url' )
+
+            const registration = {
+                client_id,
+                client_secret,
+                client_name,
+                redirect_uris,
+                grant_types,
+                token_endpoint_auth_method: 'client_secret_basic',
+                created_at: new Date().toISOString()
+            }
+
+            res.setHeader( 'Content-Type', 'application/json' )
+            res.status( 201 ).json( registration )
+        } catch( error ) {
+            res.status( 400 ).json( {
+                error: 'invalid_client_metadata',
+                error_description: error.message
+            } )
+        }
     }
 
 

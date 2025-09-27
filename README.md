@@ -2,7 +2,9 @@
 
 # MCP Auth Middleware
 
-**Authentication middleware specifically designed for Model Context Protocol (MCP) servers.** Provides secure, production-ready authentication strategies for MCP server implementations with Express.js integration.
+**OAuth 2.1 compliant authentication middleware for Model Context Protocol (MCP) 2.1 servers.** Provides secure, production-ready authentication strategies for MCP server implementations with Express.js integration.
+
+Fully compliant with [MCP 2.1 Authorization Specification](https://modelcontextprotocol.io/specification/2025-03-26/basic/authorization).
 
 ## Quickstart
 
@@ -34,8 +36,8 @@ app.use(mcpAuth.router())
 ## Features
 
 - **MCP Server Authentication**: Four authentication strategies specifically designed for Model Context Protocol servers
-- **ScaleKit OAuth 2.0**: Production-ready OAuth 2.0 authentication for secure MCP deployments
-- **AuthKit OAuth 2.0**: WorkOS AuthKit integration for enterprise-grade authentication
+- **ScaleKit OAuth 2.1**: Production-ready OAuth 2.1 authentication for secure MCP deployments
+- **AuthKit OAuth 2.1**: WorkOS AuthKit integration for enterprise-grade OAuth 2.1 authentication
 - **Development Support**: Free-route and static-bearer authentication for MCP testing and development
 - **Express.js Integration**: Ready-to-use router() method for seamless Express.js integration
 - **Route Protection**: Configurable route-based protection for MCP tools and endpoints
@@ -48,8 +50,8 @@ app.use(mcpAuth.router())
 - [Authentication Types](#authentication-types)
   - [Free Route](#free-route)
   - [Static Bearer](#static-bearer)
-  - [ScaleKit OAuth 2.0](#scalekit-oauth-20)
-  - [AuthKit OAuth 2.0](#authkit-oauth-20)
+  - [ScaleKit OAuth 2.1](#scalekit-oauth-21)
+  - [AuthKit OAuth 2.1](#authkit-oauth-21)
 - [Contribution](#contribution)
 - [License](#license)
 
@@ -132,9 +134,9 @@ const bearerAuth = await McpAuthMiddleware.create({
 }
 ```
 
-### ScaleKit OAuth 2.0
+### ScaleKit OAuth 2.1
 
-Production-ready OAuth 2.0 authentication via ScaleKit platform for secure MCP servers.
+Production-ready OAuth 2.1 authentication via ScaleKit platform for MCP 2.1 compliant servers.
 
 ```javascript
 const scalekitAuth = await McpAuthMiddleware.create({
@@ -169,9 +171,9 @@ const scalekitAuth = await McpAuthMiddleware.create({
 | protectedResourceMetadata | object | Metadata for the protected MCP resource | Yes |
 | toolScopes | object | Tool-specific permission scopes | Yes |
 
-### AuthKit OAuth 2.0
+### AuthKit OAuth 2.1
 
-Enterprise-grade OAuth 2.0 authentication via WorkOS AuthKit for secure MCP servers.
+Enterprise-grade OAuth 2.1 authentication via WorkOS AuthKit for MCP 2.1 compliant servers.
 
 ```javascript
 const authkitAuth = await McpAuthMiddleware.create({
