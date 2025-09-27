@@ -157,7 +157,7 @@ class AuthKitMiddleware {
             return res
                 .status( 401 )
                 .set( 'WWW-Authenticate', wwwHeader )
-                .end()
+                .json( { error: 'invalid_token', error_description: 'Missing or invalid access token' } )
         }
     }
 
