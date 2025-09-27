@@ -202,10 +202,11 @@ class AuthKitMiddleware {
 
 
     #buildWWWAuthenticateHeader() {
-        // Extract the resource URL from protectedResourceMetadata
+        // OAuth 2.0/2.1 compliant header (RFC 6750)
+        // Include both standard OAuth error AND MCP resource_metadata for compatibility
         const metadata = JSON.parse( this.#protectedResourceMetadata )
         const resourceUrl = metadata.resource
-        return `Bearer realm="OAuth", resource_metadata="${resourceUrl}/.well-known/oauth-protected-resource"`
+        return `Bearer realm="${resourceUrl}", error="invalid_token", error_description="The access token is missing or invalid", resource_metadata="${resourceUrl}/.well-known/oauth-protected-resource"`
     }
 
 

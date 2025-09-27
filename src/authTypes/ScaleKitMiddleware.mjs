@@ -193,14 +193,16 @@ class ScaleKitMiddleware {
 
 
     #buildWWWAuthenticateHeader() {
-        // Parse URL to extract clean base URL and path
+        // OAuth 2.0/2.1 compliant header (RFC 6750)
+        // Include both standard OAuth error AND MCP resource_metadata for compatibility
         const url = new URL(this.#expectedAudience)
         const baseUrl = `${url.protocol}//${url.host}`
         const cleanPath = url.pathname
 
         const metadataUrl = `${baseUrl}${cleanPath}/.well-known/oauth-protected-resource`
 
-        return `Bearer realm="OAuth", resource_metadata="${metadataUrl}"`
+        // RFC 6750 compliant with MCP extension
+        return `Bearer realm="${this.#expectedAudience}", error="invalid_token", error_description="The access token is missing or invalid", resource_metadata="${metadataUrl}"`
     }
 
 

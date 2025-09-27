@@ -112,7 +112,7 @@ class StaticBearerMiddleware {
                 console.log( `[${timestamp}] AUTH FAILED  - ${errorMessage}` )
             }
 
-            const wwwHeader = 'Bearer realm="Static Token"'
+            const wwwHeader = 'Bearer realm="Static Token", error="invalid_token", error_description="The access token is missing or invalid"'
 
             return res
                 .status( 401 )
