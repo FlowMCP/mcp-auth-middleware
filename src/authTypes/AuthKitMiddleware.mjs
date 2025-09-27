@@ -58,7 +58,7 @@ class AuthKitMiddleware {
             console.log( '\n' + '-'.repeat( 80 ) )
             console.log( ' AUTHENTICATION MIDDLEWARE' )
             console.log( '-'.repeat( 80 ) )
-            console.log( ` Type:                 OAuth 2.1 (AuthKit)` )
+            console.log( ` Type:                 OAuth 2.0 (AuthKit)` )
             console.log( ` AuthKit Domain:       ${options.authKitDomain}` )
             console.log( ` Client ID:            ${options.clientId.substring( 0, 8 )}...` )
             console.log( ` Expected Audience:    ${options.expectedAudience}` )

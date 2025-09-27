@@ -51,7 +51,7 @@ class ScaleKitMiddleware {
             console.log( '\n' + '-'.repeat( 80 ) )
             console.log( ' AUTHENTICATION MIDDLEWARE' )
             console.log( '-'.repeat( 80 ) )
-            console.log( ` Type:                 OAuth 2.1 (ScaleKit)` )
+            console.log( ` Type:                 OAuth 2.0 (ScaleKit)` )
             console.log( ` Provider URL:         ${options.providerUrl}` )
             console.log( ` Client ID:            ${options.clientId.substring( 0, 8 )}...` )
             console.log( ` Resource/Audience:    ${options.resource}` )
@@ -193,13 +193,14 @@ class ScaleKitMiddleware {
 
 
     #buildWWWAuthenticateHeader() {
-        const baseUrl = this.#expectedAudience.replace( /\/$/, '' )
-        const resourcePath = this.#attachedRoutes[0] || ''
+        // Parse URL to extract clean base URL and path
+        const url = new URL(this.#expectedAudience)
+        const baseUrl = `${url.protocol}//${url.host}`
+        const cleanPath = url.pathname
 
-        // Build the correct metadata URL with the resource path before .well-known
-        // Handle root path case to avoid double slashes
-        const fullPath = resourcePath === '/' ? '' : resourcePath
-        return `Bearer realm="OAuth", resource_metadata="${baseUrl}${fullPath}/.well-known/oauth-protected-resource"`
+        const metadataUrl = `${baseUrl}${cleanPath}/.well-known/oauth-protected-resource`
+
+        return `Bearer realm="OAuth", resource_metadata="${metadataUrl}"`
     }
 
 
